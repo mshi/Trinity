@@ -1,4 +1,5 @@
-﻿// InventoryWindow.IsVisible doesn't seem to work
+﻿// InventoryWindow.IsVisible and ZetaDia.Me.Inventory.* only gets updated on OnPulse (i think).
+// TODO: Queue task to occur on the next on pulse. (check for bracer, close inventory, etc)
 //#define INVENTORY_VISIBILITY_WORKS
 
 using System;
@@ -41,23 +42,9 @@ namespace EquipmentSwap
                     BotMain.PauseFor(TimeSpan.FromMilliseconds(WaitTimeMax));
 #endif
                     Logger.Info("Opened inventory");
-                    var attempts = 0;
-                    while (attempts++ < 10)
-                    {
-                        Logger.Info("Swapping item {0} with {1}. Attempt {2}", _originalBracer.Name, targetItem.Name,
-                                    attempts);
-                        ZetaDia.Me.Inventory.EquipItem(targetItem.DynamicId, InventorySlot.Bracers);
-                        BotMain.PauseFor(TimeSpan.FromMilliseconds(WaitTimeShort));
-                        if (
-                            ZetaDia.Me.Inventory.Equipped.Single(x => x.InventorySlot == InventorySlot.Bracers).
-                                DynamicId == targetItem.DynamicId)
-                        {
-                            break;
-                        }
-                    }
-                    //BotMain.PauseWhile(
-                    //    () =>
-                    //    ZetaDia.Me.Inventory.Equipped.Single(x => x.InventorySlot == InventorySlot.Bracers).DynamicId != targetItem.DynamicId, WaitTimeShort, TimeSpan.FromMilliseconds(WaitTimeMax));
+                    Logger.Info("Swapping item {0} with {1}.", _originalBracer.Name, targetItem.Name);
+                    ZetaDia.Me.Inventory.EquipItem(targetItem.DynamicId, InventorySlot.Bracers);
+                    BotMain.PauseFor(TimeSpan.FromMilliseconds(WaitTime));
                 }
             }
             catch (Exception ex)
@@ -70,18 +57,10 @@ namespace EquipmentSwap
         public static void EquipOriginalBracer(ACDItem oldItem)
         {
             BotMain.PauseFor(TimeSpan.FromMilliseconds(WaitTime));
-            var attempts = 0;
-            while (attempts++ < 10)
-            {
-                Logger.Info("Swapping back item {0}. Attempt {1}", oldItem.Name, attempts);
-                ZetaDia.Me.Inventory.EquipItem(oldItem.DynamicId, InventorySlot.Bracers);
-                BotMain.PauseFor(TimeSpan.FromMilliseconds(WaitTimeShort));
-                if (ZetaDia.Me.Inventory.Equipped.Single(x => x.InventorySlot == InventorySlot.Bracers).DynamicId ==
-                    oldItem.DynamicId)
-                {
-                    break;
-                }
-            }
+
+            Logger.Info("Swapping back item {0}.", oldItem.Name);
+            ZetaDia.Me.Inventory.EquipItem(oldItem.DynamicId, InventorySlot.Bracers);
+            BotMain.PauseFor(TimeSpan.FromMilliseconds(WaitTimeShort));
 
             CloseInventory();
             Logger.Info("Closed inventory");
