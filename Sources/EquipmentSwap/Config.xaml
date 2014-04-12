@@ -1,0 +1,19 @@
+﻿<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             mc:Ignorable="d" 
+             d:DesignHeight="175" d:DesignWidth="175" Background="Black" Foreground="White">
+    <UserControl.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+    </UserControl.Resources>
+    <StackPanel HorizontalAlignment="Center" VerticalAlignment="Stretch" Height="Auto" >
+        <WrapPanel HorizontalAlignment="Right" VerticalAlignment="Stretch">
+            <Button Content="Equip Nemesis Bracer" Command="{Binding Path=EquipNemesis}" Width="120" />
+            <Button Content="Equip Original" Command="{Binding Path=EquipOriginal}" Width="120" />
+    </WrapPanel>
+    </StackPanel>
+</UserControl>

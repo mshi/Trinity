@@ -102,6 +102,9 @@
     <Compile Include="Configuration\TVars.cs" />
     <Compile Include="DbProvider\DeathHandler.cs" />
     <Compile Include="DbProvider\SearchAreaProvider.cs" />
+    <Compile Include="EquipmentSwap\Config.cs" />
+    <Compile Include="EquipmentSwap\EquipmentSwapper.cs" />
+    <Compile Include="EquipmentSwap\Logger.cs" />
     <Compile Include="Helpers\Attributes\NoCopy.cs" />
     <Compile Include="Helpers\CloneExtension.cs" />
     <Compile Include="Helpers\DoubleInt.cs" />
@@ -189,6 +192,7 @@
     <Compile Include="Settings\TrinitySetting.cs" />
     <Compile Include="Settings\WorldObjectSetting.cs" />
     <Compile Include="Helpers\PerformanceLogger.cs" />
+    <Compile Include="EquipmentSwapPlugin.cs" />
     <Compile Include="UI\UIComponents\BoolInverterConverter.cs" />
     <Compile Include="UI\UIComponents\ConfigViewModel.cs" />
     <Compile Include="UI\UIComponents\EnumVisibilityConverter.cs" />
@@ -244,6 +248,10 @@
     <Compile Include="XmlTags\TrinityUseStop.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Page Include="EquipmentSwap\Config.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="UI\Combat\ConfigMisc.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
