@@ -31,6 +31,7 @@ namespace Trinity.Config.Combat
         private int _ForceKillElitesHealth;
         private bool _ForceKillSummoners;
         private bool _ProfileTagOverride;
+        private bool _swapBracerForShrine;
         #endregion Fields
 
         #region Events
@@ -48,6 +49,24 @@ namespace Trinity.Config.Combat
         #endregion Constructors
 
         #region Properties
+
+        [DataMember(IsRequired = false)]
+        [DefaultValue(false)]
+        public bool SwapBracerForShrine
+        {
+            get
+            {
+                return _swapBracerForShrine;
+            }
+            set
+            {
+                if (_swapBracerForShrine != value)
+                {
+                    _swapBracerForShrine = value;
+                    OnPropertyChanged("SwapBracerForShrine");
+                }
+            }
+        }
 
         [DataMember(IsRequired = false)]
         [DefaultValue(4)]
@@ -490,7 +509,7 @@ namespace Trinity.Config.Combat
                 {
                     _ForceKillSummoners = value;
                     OnPropertyChanged("ForceKillSummoners");
-             }
+                }
             }
         }
 
@@ -544,7 +563,7 @@ namespace Trinity.Config.Combat
             this.UseExperimentalFireChainsAvoidance = true;
             this.ForceKillElitesHealth = 0;
             this.ForceKillSummoners = true;
-            
+
         }
         #endregion Methods
     }

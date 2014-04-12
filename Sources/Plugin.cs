@@ -27,7 +27,7 @@ namespace Trinity
         {
             get
             {
-                return "rrrix + darkfriend77 + GilesSmith + Community Devs";
+                return "rrrix + darkfriend77 + GilesSmith + Community Devs + UndeadGhost";
             }
         }
 
@@ -35,7 +35,7 @@ namespace Trinity
         {
             get
             {
-                return string.Format("Trinity v{0}", Version);
+                return string.Format("Trinity v{0}-shrine", Version);
             }
         }
 

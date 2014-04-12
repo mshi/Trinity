@@ -271,6 +271,14 @@ namespace Trinity
 
                     bool hasPotion = ZetaDia.Me.Inventory.Backpack.Any(p => p.GameBalanceId == -2142362846);
 
+                    if (hasPotion && Player.CurrentHealthPct <= PlayerEmergencyHealthPotionLimit && !IsWaitingForPower && !IsWaitingForPotion
+                        && !Player.IsIncapacitated && SNOPowerUseTimer(SNOPower.DrinkHealthPotion))
+                    {
+                        Logger.Log(TrinityLogLevel.Debug, LogCategory.Targetting, "Setting isWaitingForPotion: MyHP={0}, Limit={1}", Player.CurrentHealthPct, PlayerEmergencyHealthPotionLimit);
+                        IsWaitingForPotion = true;
+                        runStatus = HandlerRunStatus.TreeRunning;
+                    }
+
                     // Pop a potion when necessary
 
                     UsePotionIfNeeded();
@@ -502,10 +510,19 @@ namespace Trinity
                                                 Logger.LogDebug("Adding {0} {1} to SameWorldPortals", CurrentTarget.InternalName, CurrentTarget.ActorSNO);
                                                 CacheData.SameWorldPortals.Add(new Cache.SameWorldPortal() { ActorSNO = CurrentTarget.ActorSNO, RActorGUID = CurrentTarget.RActorGuid });
                                             }
-
-                                            Logger.LogDebug(LogCategory.Behavior, "Using {0} on {1} Distance {2} Radius {3}",
-                                                SNOPower.Axe_Operate_Gizmo, CurrentTarget.InternalName, CurrentTarget.CentreDistance, CurrentTarget.Radius);
-                                            ZetaDia.Me.UsePower(SNOPower.Axe_Operate_Gizmo, Vector3.Zero, 0, CurrentTarget.ACDGuid);
+                                            if (CurrentTarget.Type == GObjectType.Shrine)
+                                            {
+                                                HandleShrine();
+                                            }
+                                            else
+                                            {
+                                                Logger.LogDebug(LogCategory.Behavior,
+                                                                "Using {0} on {1} Distance {2} Radius {3}",
+                                                                SNOPower.Axe_Operate_Gizmo, CurrentTarget.InternalName,
+                                                                CurrentTarget.CentreDistance, CurrentTarget.Radius);
+                                                ZetaDia.Me.UsePower(SNOPower.Axe_Operate_Gizmo, Vector3.Zero, 0,
+                                                                    CurrentTarget.ACDGuid);
+                                            }
                                             SpellHistory.RecordSpell(new TrinityPower()
                                                 {
                                                     SNOPower = SNOPower.Axe_Operate_Gizmo,
@@ -1038,26 +1055,11 @@ namespace Trinity
             {
                 if (IsWaitingForPotion)
                 {
-
                     if (!Player.IsIncapacitated && GameUI.IsElementVisible(GameUI.GamePotion) && GameUI.GamePotion.IsEnabled)
                     {
-                        var legendaryPotions = ZetaDia.Me.Inventory.Backpack.Where(i => i.InternalName.ToLower()
-                            .Contains("healthpotion_legendary_"));
-
-                        var regularPotions = ZetaDia.Me.Inventory.Backpack.Where(i => i.InternalName.ToLower()
-                            .Contains("healthpotion_") && !i.InternalName.ToLower().Contains("legendary"));
-
-                        IsWaitingForPotion = false;
-
-                        int dynamicId = 0;
-                        if (legendaryPotions.Any())
+                        if (GameUI.GamePotion.IsVisible && GameUI.GamePotion.IsEnabled)
                         {
-                            Logger.Log(TrinityLogLevel.Debug, LogCategory.Targetting, "Using Potion", 0);
-                            dynamicId = legendaryPotions.FirstOrDefault().DynamicId;
-                            ZetaDia.Me.Inventory.UseItem(dynamicId);
-                        }
-                        else if (GameUI.GamePotion.IsEnabled)
-                        {
+                            IsWaitingForPotion = false;
                             Logger.Log(TrinityLogLevel.Debug, LogCategory.Targetting, "Using Potion", 0);
                             GameUI.SafeClickElement(GameUI.GamePotion);
                         }

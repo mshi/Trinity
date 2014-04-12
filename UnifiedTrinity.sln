@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GilesTrinity", "Sources\GilesTrinity.csproj", "{997F24E1-4CD7-42C7-A5B5-4983636D5F2B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Trinity", "Sources\Trinity.csproj", "{997F24E1-4CD7-42C7-A5B5-4983636D5F2B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrinityCombatRoutine", "GilesBlankCombatRoutine\TrinityCombatRoutine\TrinityCombatRoutine.csproj", "{65A9BA78-045B-4F48-B9A3-AC1CE9739FEC}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TrinityCombatRoutine", "TrinityRoutine\TrinityRoutine\TrinityCombatRoutine.csproj", "{65A9BA78-045B-4F48-B9A3-AC1CE9739FEC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
