@@ -194,3 +194,7 @@ UpgradeLog*.htm
 
 # Microsoft Fakes
 FakesAssemblies/
+
+Trinity/bin
+Trinity/obj
+Trinity/External
