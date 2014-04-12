@@ -19,7 +19,7 @@ namespace Trinity
         {
             get
             {
-                return new Version(1, 8, 19);
+                return new Version(1, 8, 19, 3);
             }
         }
 
@@ -35,7 +35,7 @@ namespace Trinity
         {
             get
             {
-                return string.Format("Trinity v{0}-shrine", Version);
+                return string.Format("Trinity Plus v{0}", Version);
             }
         }
 
