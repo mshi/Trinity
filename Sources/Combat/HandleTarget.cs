@@ -512,7 +512,10 @@ namespace Trinity
                                             }
                                             if (CurrentTarget.Type == GObjectType.Shrine)
                                             {
-                                                HandleShrine();
+                                                if (!HandleShrine())
+                                                {
+                                                    return GetTreeSharpRunStatus(HandlerRunStatus.TreeRunning);
+                                                }
                                             }
                                             else
                                             {

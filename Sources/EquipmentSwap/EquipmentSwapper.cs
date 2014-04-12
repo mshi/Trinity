@@ -3,21 +3,16 @@
 //#define INVENTORY_VISIBILITY_WORKS
 
 using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Zeta.Bot;
 using Zeta.Game;
-using Zeta.Game.Internals;
 using Zeta.Game.Internals.Actors;
 
 namespace EquipmentSwap
 {
     class EquipmentSwapper
     {
-        private const int WaitTimeShort = 500;
-        private const int WaitTime = 1500;
-        private const int WaitTimeMax = 3000;
+        private const int WaitTime = 750;
         private static ACDItem _originalBracer;
         private static bool _isOpen;
 
@@ -39,7 +34,7 @@ namespace EquipmentSwap
                     BotMain.PauseWhile(() => !UIElements.InventoryWindow.IsVisible, WaitTimeShort,
                                        TimeSpan.FromMilliseconds(WaitTimeMax));
 #else
-                    BotMain.PauseFor(TimeSpan.FromMilliseconds(WaitTimeMax));
+                    BotMain.PauseFor(TimeSpan.FromMilliseconds(WaitTime));
 #endif
                     Logger.Info("Opened inventory");
                     Logger.Info("Swapping item {0} with {1}.", _originalBracer.Name, targetItem.Name);
@@ -60,7 +55,7 @@ namespace EquipmentSwap
 
             Logger.Info("Swapping back item {0}.", oldItem.Name);
             ZetaDia.Me.Inventory.EquipItem(oldItem.DynamicId, InventorySlot.Bracers);
-            BotMain.PauseFor(TimeSpan.FromMilliseconds(WaitTimeShort));
+            BotMain.PauseFor(TimeSpan.FromMilliseconds(WaitTime));
 
             CloseInventory();
             Logger.Info("Closed inventory");
