@@ -17,6 +17,17 @@ namespace Trinity
         {
             using (new PerformanceLogger("HandleShrine"))
             {
+                if (CurrentTarget.InternalName.Equals("PoolOfReflection"))
+                {
+                    Logger.Log("[HandleShrine] This pool of reflection. Proceed.");
+                    Logger.LogDebug(LogCategory.Behavior,
+                                    "Using {0} on {1} Distance {2} Radius {3}",
+                                    SNOPower.Axe_Operate_Gizmo, CurrentTarget.InternalName,
+                                    CurrentTarget.CentreDistance, CurrentTarget.Radius);
+                    ZetaDia.Me.UsePower(SNOPower.Axe_Operate_Gizmo, Vector3.Zero, 0,
+                                        CurrentTarget.ACDGuid);
+                    return true;
+                }
                 if (Settings.Combat.Misc.SwapBracerForShrine && _shrineNextStep == HandleShrineStep.EquipBracer)
                 {
                     EquipmentSwapper.EquipNemesisBracer();
