@@ -84,7 +84,7 @@ namespace Trinity.Helpers
                 case "{c:ff99bbff}":
                     qualityResult = ItemQuality.Normal;
                     break;
-                case "{c:ffc236ff}":
+                case "{c:ffc236ff}": // purple, HoradricRelic (blood shards)
                     qualityResult = ItemQuality.Special;
                     break;
                 case "":
