@@ -369,6 +369,15 @@ namespace Trinity
 
                     using (new PerformanceLogger("HandleTarget.InRange"))
                     {
+                        // check to see if we missed a re-equip due to new target
+                        if (CurrentTarget.Type != GObjectType.Shrine && _shrineNextStep == HandleShrineStep.ReEquipOriginal)
+                        {
+                            if (HandleShrine())
+                            {
+                                return RunStatus.Running;
+                            }
+                        }
+
                         // Interact/use power on target if already in range
                         if (TargetRangeRequired <= 0f || TargetCurrentDistance <= TargetRangeRequired && CurrentTargetIsInLoS)
                         {

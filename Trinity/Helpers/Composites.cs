@@ -45,12 +45,12 @@ namespace Trinity.Helpers
                     )
                 )
             );
-
         }
 
 
         internal static RunStatus OpenHoradricCache()
         {
+            return RunStatus.Success;
             if (HasHoradricCaches())
             {
                 var item = ZetaDia.Me.Inventory.Backpack.First(i => i.GameBalanceId == Items.ItemIds.HORADRIC_CACHE);

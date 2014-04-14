@@ -80,9 +80,12 @@ namespace Trinity.Helpers
                 case "{c:ffffffff}":
                     qualityResult = ItemQuality.Normal;
                     break;
-                    // got this off a "lore book" - not sure what it actually equates to
+                // got this off a "lore book" - not sure what it actually equates to
                 case "{c:ff99bbff}":
                     qualityResult = ItemQuality.Normal;
+                    break;
+                case "{c:ffc236ff}":
+                    qualityResult = ItemQuality.Special;
                     break;
                 case "":
                     qualityResult = ItemQuality.Invalid;

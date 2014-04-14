@@ -52,11 +52,17 @@ namespace EquipmentSwap
         public static void EquipOriginalBracer(ACDItem oldItem)
         {
             BotMain.PauseFor(TimeSpan.FromMilliseconds(WaitTime));
-
-            Logger.Info("Swapping back item {0}.", oldItem.Name);
-            ZetaDia.Me.Inventory.EquipItem(oldItem.DynamicId, InventorySlot.Bracers);
-            BotMain.PauseFor(TimeSpan.FromMilliseconds(WaitTime));
-
+            var currentBracer = ZetaDia.Me.Inventory.Equipped.Single(x => x.InventorySlot == InventorySlot.Bracers);
+            if (currentBracer.DynamicId == oldItem.DynamicId)
+            {
+                Logger.Info("Already wearing original bracer");
+            }
+            else
+            {
+                Logger.Info("Swapping back item {0}.", oldItem.Name);
+                ZetaDia.Me.Inventory.EquipItem(oldItem.DynamicId, InventorySlot.Bracers);
+                BotMain.PauseFor(TimeSpan.FromMilliseconds(WaitTime));
+            }
             CloseInventory();
             Logger.Info("Closed inventory");
         }

@@ -8,7 +8,7 @@ namespace EquipmentSwap
 {
     public class EquipmentSwapPlugin : IPlugin
     {
-        public Version Version { get { return new Version(0, 0, 1); } }
+        public Version Version { get { return new Version(0, 0, 4); } }
         public string Author { get { return "UndeadGhost"; } }
         public string Description { get { return "Equip items based on conditions"; } }
         public string Name { get { return "Equipment Swap"; } }
