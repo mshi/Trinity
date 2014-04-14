@@ -27,16 +27,15 @@ namespace EquipmentSwap
 
         public static void EquipBracer()
         {
-            _originalBracer = ZetaDia.Me.Inventory.Equipped.Single(x => x.InventorySlot == InventorySlot.Bracers);
             var targetBracer =
                 ZetaDia.Me.Inventory.Backpack.FirstOrDefault(item => item.Name.Equals("Nemesis Bracers"));
             if (targetBracer == null || !targetBracer.IsValid)
             {
                 Logger.Info("Nemesis Bracers not found");
-                _bracerChanged = false;
             }
             else
             {
+                _originalBracer = ZetaDia.Me.Inventory.Equipped.Single(x => x.InventorySlot == InventorySlot.Bracers);
                 EquipItem(_originalBracer, targetBracer, InventorySlot.Bracers);
                 _bracerChanged = true;
             }
@@ -44,15 +43,14 @@ namespace EquipmentSwap
 
         public static void EquipGlove()
         {
-            _originalGlove = ZetaDia.Me.Inventory.Equipped.Single(x => x.InventorySlot == InventorySlot.Hands);
             var targetGlove = ZetaDia.Me.Inventory.Backpack.FirstOrDefault(item => item.Name.Equals("Gloves of Worship"));
             if (targetGlove == null || !targetGlove.IsValid)
             {
                 Logger.Info("Gloves of Worship not found");
-                _gloveChanged = false;
             }
             else
             {
+                _originalGlove = ZetaDia.Me.Inventory.Equipped.Single(x => x.InventorySlot == InventorySlot.Hands);
                 EquipItem(_originalGlove, targetGlove, InventorySlot.Hands);
                 _gloveChanged = true;
             }
