@@ -9,9 +9,9 @@ namespace Trinity
 {
     public partial class Trinity
     {
-        private enum HandleShrineStep { EquipBracer, TouchShrine, ReEquipOriginal }
+        private enum HandleShrineStep { Equip, TouchShrine, ReEquipOriginal }
 
-        private static HandleShrineStep _shrineNextStep = HandleShrineStep.EquipBracer;
+        private static HandleShrineStep _shrineNextStep = HandleShrineStep.Equip;
 
         private static bool HandleShrine()
         {
@@ -28,9 +28,9 @@ namespace Trinity
                                         CurrentTarget.ACDGuid);
                     return true;
                 }
-                if (Settings.Combat.Misc.SwapBracerForShrine && _shrineNextStep == HandleShrineStep.EquipBracer)
+                if (Settings.Combat.Misc.SwapBracerForShrine && _shrineNextStep == HandleShrineStep.Equip)
                 {
-                    EquipmentSwapper.EquipNemesisBracer();
+                    EquipmentSwapper.EquipShrineItems();
                     _shrineNextStep = HandleShrineStep.TouchShrine;
                     return false;
                 }
@@ -55,8 +55,8 @@ namespace Trinity
 
                 if (_shrineNextStep == HandleShrineStep.ReEquipOriginal)
                 {
-                    EquipmentSwapper.EquipOriginalBracer();
-                    _shrineNextStep = HandleShrineStep.EquipBracer;
+                    EquipmentSwapper.EquipOriginalItems();
+                    _shrineNextStep = HandleShrineStep.Equip;
                     return true;
                 }
             }
