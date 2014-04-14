@@ -111,6 +111,8 @@ namespace Trinity
                 extras += " CPowerShouldWaitAfter=" + (CombatBase.CurrentPower.WaitAfterUseDelay - CombatBase.CurrentPower.TimeSinceUse);
             if (CombatBase.CurrentPower != null && (CombatBase.CurrentPower.ShouldWaitBeforeUse || CombatBase.CurrentPower.ShouldWaitAfterUse))
                 extras += " " + CombatBase.CurrentPower.ToString();
+            if (_shrineNextStep != HandleShrineStep.Open)
+                extras += " ShrineEquipment";
 
             Logger.Log(TrinityLogLevel.Debug, LogCategory.Behavior, "Handle Target returning {0} to tree" + extras, treeRunStatus);
             return treeRunStatus;
@@ -153,6 +155,16 @@ namespace Trinity
                     PlayerMover.TimesReachedStuckPoint = 0;
                     PlayerMover.vSafeMovementLocation = Vector3.Zero;
                     PlayerMover.TimeLastRecordedPosition = DateTime.UtcNow;
+
+                    // check if we are in the middle of interacting with a shrine
+                    if (_shrineNextStep == HandleShrineStep.TouchShrine && CurrentTarget.Type != GObjectType.Shrine)
+                    {
+                        runStatus = HandlerRunStatus.TreeRunning;
+                    }
+                    if (_shrineNextStep == HandleShrineStep.ReEquipBracer || _shrineNextStep == HandleShrineStep.ReEquipGlove || _shrineNextStep == HandleShrineStep.Close)
+                    {
+                        runStatus = HandleShrine() ? HandlerRunStatus.NotFinished : HandlerRunStatus.TreeRunning;
+                    }
 
                     // Whether we should refresh the target list or not
                     // See if we should update hotbar abilities
@@ -369,15 +381,6 @@ namespace Trinity
 
                     using (new PerformanceLogger("HandleTarget.InRange"))
                     {
-                        // check to see if we missed a re-equip due to new target
-                        if (CurrentTarget.Type != GObjectType.Shrine && _shrineNextStep == HandleShrineStep.ReEquipOriginal)
-                        {
-                            if (HandleShrine())
-                            {
-                                return RunStatus.Running;
-                            }
-                        }
-
                         // Interact/use power on target if already in range
                         if (TargetRangeRequired <= 0f || TargetCurrentDistance <= TargetRangeRequired && CurrentTargetIsInLoS)
                         {
@@ -920,6 +923,10 @@ namespace Trinity
 
                 // don't timeout if we're actively moving
                 if (PlayerMover.GetMovementSpeed() > 1)
+                    return HandlerRunStatus.NotFinished;
+
+                // don't timeout shrine equip
+                if (CurrentTarget.Type == GObjectType.Shrine && _shrineNextStep != HandleShrineStep.Open)
                     return HandlerRunStatus.NotFinished;
 
                 if (CurrentTargetIsNonUnit() && GetSecondsSinceTargetUpdate() > 6)

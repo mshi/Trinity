@@ -31,7 +31,7 @@ namespace Trinity.Config.Combat
         private int _ForceKillElitesHealth;
         private bool _ForceKillSummoners;
         private bool _ProfileTagOverride;
-        private bool _swapBracerForShrine;
+        private bool _swapEquipsForShrine;
         #endregion Fields
 
         #region Events
@@ -52,18 +52,15 @@ namespace Trinity.Config.Combat
 
         [DataMember(IsRequired = false)]
         [DefaultValue(false)]
-        public bool SwapBracerForShrine
+        public bool SwapEquipsForShrine
         {
-            get
-            {
-                return _swapBracerForShrine;
-            }
+            get { return _swapEquipsForShrine; }
             set
             {
-                if (_swapBracerForShrine != value)
+                if (_swapEquipsForShrine != value)
                 {
-                    _swapBracerForShrine = value;
-                    OnPropertyChanged("SwapBracerForShrine");
+                    _swapEquipsForShrine = value;
+                    OnPropertyChanged("SwapEquipsForShrine");
                 }
             }
         }

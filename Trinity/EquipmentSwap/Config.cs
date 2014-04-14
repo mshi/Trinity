@@ -64,11 +64,11 @@ namespace EquipmentSwap
                 {
                     try
                     {
-                        EquipmentSwapper.EquipShrineItems();
+                        EquipmentSwapper.EquipBracer();
                     }
                     catch (Exception ex)
                     {
-                        Logger.Error(ex, "Error Equipping Shrine items");
+                        Logger.Error(ex, "Error Equipping Shrine Bracer");
                         if (ex.InnerException != null)
                         {
                             Logger.Error(ex.InnerException, "InnerException: ");
@@ -86,11 +86,11 @@ namespace EquipmentSwap
                 {
                     try
                     {
-                        EquipmentSwapper.EquipOriginalItems();
+                        EquipmentSwapper.EquipOriginalBracer();
                     }
                     catch (Exception ex)
                     {
-                        Logger.Error(ex, "Error Equipping original item");
+                        Logger.Error(ex, "Error Equipping original bracer");
                     }
                 });
             }
