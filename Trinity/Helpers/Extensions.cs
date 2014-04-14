@@ -98,5 +98,19 @@ namespace Trinity.Helpers
 
             return qualityResult;
         }
+
+        public static int GetGemQualityLevel(this ACDItem item)
+        {
+            if (item == null)
+                return 0;
+            if (!item.IsValid)
+                return 0;
+
+            // Imperial Gem hax
+            if (item.InternalName.EndsWith("_16"))
+                return 68;
+
+            return item.Level;
+        }
     }
 }
