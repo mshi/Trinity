@@ -1348,7 +1348,7 @@ namespace Trinity.XmlTags
             else
                 return 0;
         }
-        
+
         /// <summary>
         /// Gets the number of nodes in the DungeonExplorer Route
         /// </summary>
@@ -1525,7 +1525,7 @@ namespace Trinity.XmlTags
             try
             {
                 var b = ZetaDia.ActInfo.ActiveBounty;
-                if (b == null && QuestId != 1 && QuestId != 312429)
+                if (b == null)
                 {
                     Logger.Log("Active bounty returned null, Assuming done.");
                     return true;
