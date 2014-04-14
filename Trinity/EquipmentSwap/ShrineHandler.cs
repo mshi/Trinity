@@ -55,10 +55,11 @@ namespace Trinity
                             return false;
                         case HandleShrineStep.EquipBracer:
                             EquipmentSwapper.EquipBracer();
-                            _shrineNextStep = HandleShrineStep.EquipGlove;
+                            //_shrineNextStep = HandleShrineStep.EquipGlove;
+                            _shrineNextStep = HandleShrineStep.TouchShrine;
                             return false;
                         case HandleShrineStep.EquipGlove:
-                            EquipmentSwapper.EquipGlove();
+                            // EquipmentSwapper.EquipGlove();
                             _shrineNextStep = HandleShrineStep.TouchShrine;
                             return false;
                         case HandleShrineStep.TouchShrine:
@@ -67,10 +68,11 @@ namespace Trinity
                             return true;
                         case HandleShrineStep.ReEquipBracer:
                             EquipmentSwapper.EquipOriginalBracer();
-                            _shrineNextStep = HandleShrineStep.ReEquipGlove;
+                            //_shrineNextStep = HandleShrineStep.ReEquipGlove;
+                            _shrineNextStep = HandleShrineStep.Close;
                             return false;
                         case HandleShrineStep.ReEquipGlove:
-                            EquipmentSwapper.EquipOriginalGlove();
+                            // EquipmentSwapper.EquipOriginalGlove();
                             _shrineNextStep = HandleShrineStep.Close;
                             return false;
                         case HandleShrineStep.Close:
