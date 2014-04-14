@@ -725,7 +725,10 @@ namespace Trinity
                         }
                         else
                         {
-                            AddToCache = RefreshItem();
+                            using (new PerformanceLogger("RefreshItemBlock"))
+                            {
+                                AddToCache = RefreshItem();
+                            }
                             c_IgnoreReason = "RefreshItem";
                         }
 

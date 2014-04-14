@@ -19,7 +19,6 @@ namespace Trinity
 
             if (c_BalanceID == -1)
             {
-                AddToCache = false;
                 c_IgnoreSubStep = "InvalidBalanceID";
             }
 
@@ -37,8 +36,10 @@ namespace Trinity
             if (!diaItem.CommonData.IsValid)
                 return false;
 
+
             c_ItemQuality = diaItem.CommonData.ItemQualityLevel;
-            c_ItemQualityLevelIdentified = ((DiaItem)c_diaObject).CommonData.GetAttribute<int>(ActorAttributeType.ItemQualityLevelIdentified);
+            c_ItemQualityLevelIdentified =
+                ((DiaItem)c_diaObject).CommonData.GetAttribute<int>(ActorAttributeType.ItemQualityLevelIdentified);
             c_ItemDisplayName = diaItem.CommonData.Name;
             c_GameBalanceID = diaItem.CommonData.GameBalanceId;
 
@@ -54,43 +55,44 @@ namespace Trinity
 
             // And temporarily store the base type
             GItemBaseType itemBaseType = DetermineBaseType(c_item_GItemType);
-
-            // Compute item quality from item link for Crafting Plans (Blacksmith or Jewler)
-            if (itemBaseType == GItemBaseType.Misc || itemBaseType == GItemBaseType.Unknown)
+            using (new PerformanceLogger("RefreshItem.DetermineTypeAndAttributes"))
             {
-                if (!CacheData.ItemLinkQuality.TryGetValue(c_ACDGUID, out c_ItemQuality))
+                // Compute item quality from item link for Crafting Plans (Blacksmith or Jewler)
+                if (itemBaseType == GItemBaseType.Misc || itemBaseType == GItemBaseType.Unknown)
                 {
-                    c_ItemQuality = diaItem.CommonData.ItemLinkColorQuality();
-                    CacheData.ItemLinkQuality.Add(c_ACDGUID, c_ItemQuality);
+                    if (!CacheData.ItemLinkQuality.TryGetValue(c_ACDGUID, out c_ItemQuality))
+                    {
+                        c_ItemQuality = diaItem.CommonData.ItemLinkColorQuality();
+                        CacheData.ItemLinkQuality.Add(c_ACDGUID, c_ItemQuality);
+                    }
                 }
-            }
 
-            // Gem quality level hax
-            if (itemBaseType == GItemBaseType.Gem)
-                c_ItemLevel = diaItem.CommonData.GetGemQualityLevel();
+                // Gem quality level hax
+                if (itemBaseType == GItemBaseType.Gem)
+                    c_ItemLevel = diaItem.CommonData.GetGemQualityLevel();
 
-            float fExtraRange = 0f;
+                float fExtraRange = 0f;
 
-            if (c_ItemQuality >= ItemQuality.Legendary)
-            {
-                // always pickup
-                AddToCache = true;
-            }
-            else
-            {
-                if (c_ItemQuality >= ItemQuality.Rare4)
-                    fExtraRange = CurrentBotLootRange;
-
-                if (iKeepLootRadiusExtendedFor > 0)
-                    fExtraRange += 90f;
-
-                if (c_CentreDistance > (CurrentBotLootRange + fExtraRange))
+                if (c_ItemQuality >= ItemQuality.Legendary)
                 {
-                    c_IgnoreSubStep = "OutOfRange";
-                    AddToCache = false;
-                    // return here to save CPU on reading unncessary attributes for out of range items;
-                    if (!AddToCache)
-                        return AddToCache;
+                    // always pickup
+                    AddToCache = true;
+                }
+                else
+                {
+                    if (c_ItemQuality >= ItemQuality.Rare4)
+                        fExtraRange = CurrentBotLootRange;
+
+                    if (iKeepLootRadiusExtendedFor > 0)
+                        fExtraRange += 90f;
+
+                    if (c_CentreDistance > (CurrentBotLootRange + fExtraRange))
+                    {
+                        c_IgnoreSubStep = "OutOfRange";
+
+                        // return here to save CPU on reading unncessary attributes for out of range items;
+                        return false;
+                    }
                 }
             }
 
@@ -102,26 +104,26 @@ namespace Trinity
                 isUpgrade = true;
 
             var pickupItem = new PickupItem
-            {
-                Name = c_ItemDisplayName,
-                InternalName = c_InternalName,
-                Level = c_ItemLevel,
-                Quality = c_ItemQuality,
-                BalanceID = c_BalanceID,
-                DBBaseType = c_DBItemBaseType,
-                DBItemType = c_DBItemType,
-                IsOneHand = c_IsOneHandedItem,
-                IsTwoHand = c_IsTwoHandedItem,
-                ItemFollowerType = c_item_tFollowerType,
-                DynamicID = c_GameDynamicID,
-                Position = CurrentCacheObject.Position,
-                ActorSNO = c_ActorSNO,
-                ACDGuid = c_ACDGUID,
-                IsUpgrade = isUpgrade,
-                UpgradeDamage = damage,
-                UpgradeToughness = toughness,
-                UpgradeHealing = healing
-            };
+                                     {
+                                         Name = c_ItemDisplayName,
+                                         InternalName = c_InternalName,
+                                         Level = c_ItemLevel,
+                                         Quality = c_ItemQuality,
+                                         BalanceID = c_BalanceID,
+                                         DBBaseType = c_DBItemBaseType,
+                                         DBItemType = c_DBItemType,
+                                         IsOneHand = c_IsOneHandedItem,
+                                         IsTwoHand = c_IsTwoHandedItem,
+                                         ItemFollowerType = c_item_tFollowerType,
+                                         DynamicID = c_GameDynamicID,
+                                         Position = CurrentCacheObject.Position,
+                                         ActorSNO = c_ActorSNO,
+                                         ACDGuid = c_ACDGUID,
+                                         IsUpgrade = isUpgrade,
+                                         UpgradeDamage = damage,
+                                         UpgradeToughness = toughness,
+                                         UpgradeHealing = healing
+                                     };
 
 
             // Treat all globes as a yes
@@ -144,36 +146,43 @@ namespace Trinity
                 return AddToCache;
             }
 
-            // Item stats
-            logNewItem = RefreshItemStats(itemBaseType);
-
-            // Get whether or not we want this item, cached if possible
-            if (!CacheData.PickupItem.TryGetValue(c_RActorGuid, out AddToCache))
+            using (new PerformanceLogger("RefreshItem.RefreshItemStats"))
             {
-                if (pickupItem.IsTwoHand && Settings.Loot.Pickup.IgnoreTwoHandedWeapons && c_ItemQuality < ItemQuality.Legendary)
-                {
-                    AddToCache = false;
-                }
-                else if (Settings.Loot.ItemFilterMode == ItemFilterMode.DemonBuddy)
-                {
-                    AddToCache = ItemManager.Current.ShouldPickUpItem((ACDItem)c_CommonData);
-                }
-                else if (Settings.Loot.ItemFilterMode == ItemFilterMode.TrinityWithItemRules)
-                {
-                    AddToCache = ItemRulesPickupValidation(pickupItem);
-                }
-                else // Trinity Scoring Only
-                {
-                    AddToCache = PickupItemValidation(pickupItem);
-                }
+                // Item stats
+                logNewItem = RefreshItemStats(itemBaseType);
+            }
 
-                // Pickup low level enabled, and we're a low level
-                if (!AddToCache && Settings.Loot.Pickup.PickupLowLevel && Player.Level <= 10)
+            using (new PerformanceLogger("RefreshItem.ItemValidation"))
+            {
+                // Get whether or not we want this item, cached if possible
+                if (!CacheData.PickupItem.TryGetValue(c_RActorGuid, out AddToCache))
                 {
-                    AddToCache = PickupItemValidation(pickupItem);
-                }
+                    if (pickupItem.IsTwoHand && Settings.Loot.Pickup.IgnoreTwoHandedWeapons &&
+                        c_ItemQuality < ItemQuality.Legendary)
+                    {
+                        AddToCache = false;
+                    }
+                    else if (Settings.Loot.ItemFilterMode == ItemFilterMode.DemonBuddy)
+                    {
+                        AddToCache = ItemManager.Current.ShouldPickUpItem((ACDItem)c_CommonData);
+                    }
+                    else if (Settings.Loot.ItemFilterMode == ItemFilterMode.TrinityWithItemRules)
+                    {
+                        AddToCache = ItemRulesPickupValidation(pickupItem);
+                    }
+                    else // Trinity Scoring Only
+                    {
+                        AddToCache = PickupItemValidation(pickupItem);
+                    }
 
-                CacheData.PickupItem.Add(c_RActorGuid, AddToCache);
+                    // Pickup low level enabled, and we're a low level
+                    if (!AddToCache && Settings.Loot.Pickup.PickupLowLevel && Player.Level <= 10)
+                    {
+                        AddToCache = PickupItemValidation(pickupItem);
+                    }
+
+                    CacheData.PickupItem.Add(c_RActorGuid, AddToCache);
+                }
             }
 
             // Using DB built-in item rules
@@ -192,30 +201,34 @@ namespace Trinity
 
         private static void LogDroppedItem()
         {
-            string droppedItemLogPath = Path.Combine(FileManager.TrinityLogsPath, String.Format("ItemsDropped.csv"));
-
-            bool pickupItem = false;
-            CacheData.PickupItem.TryGetValue(c_RActorGuid, out pickupItem);
-
-            bool writeHeader = !File.Exists(droppedItemLogPath);
-            using (var LogWriter = new StreamWriter(droppedItemLogPath, true))
+            using (new PerformanceLogger("RefreshItem.LogDroppedItem"))
             {
-                if (writeHeader)
+                string droppedItemLogPath = Path.Combine(FileManager.TrinityLogsPath, String.Format("ItemsDropped.csv"));
+
+                bool pickupItem = false;
+                CacheData.PickupItem.TryGetValue(c_RActorGuid, out pickupItem);
+
+                bool writeHeader = !File.Exists(droppedItemLogPath);
+                using (var LogWriter = new StreamWriter(droppedItemLogPath, true))
                 {
-                    LogWriter.WriteLine("ActorSNO,GameBalanceID,Name,InternalName,DBBaseType,DBItemType,TBaseType,TItemType,Quality,Level,Pickup");
+                    if (writeHeader)
+                    {
+                        LogWriter.WriteLine(
+                            "ActorSNO,GameBalanceID,Name,InternalName,DBBaseType,DBItemType,TBaseType,TItemType,Quality,Level,Pickup");
+                    }
+                    LogWriter.Write(FormatCSVField(c_ActorSNO));
+                    LogWriter.Write(FormatCSVField(c_GameBalanceID));
+                    LogWriter.Write(FormatCSVField(c_ItemDisplayName));
+                    LogWriter.Write(FormatCSVField(c_InternalName));
+                    LogWriter.Write(FormatCSVField(c_DBItemBaseType.ToString()));
+                    LogWriter.Write(FormatCSVField(c_DBItemType.ToString()));
+                    LogWriter.Write(FormatCSVField(DetermineBaseType(c_item_GItemType).ToString()));
+                    LogWriter.Write(FormatCSVField(c_item_GItemType.ToString()));
+                    LogWriter.Write(FormatCSVField(c_ItemQuality.ToString()));
+                    LogWriter.Write(FormatCSVField(c_ItemLevel));
+                    LogWriter.Write(FormatCSVField(pickupItem));
+                    LogWriter.Write("\n");
                 }
-                LogWriter.Write(FormatCSVField(c_ActorSNO));
-                LogWriter.Write(FormatCSVField(c_GameBalanceID));
-                LogWriter.Write(FormatCSVField(c_ItemDisplayName));
-                LogWriter.Write(FormatCSVField(c_InternalName));
-                LogWriter.Write(FormatCSVField(c_DBItemBaseType.ToString()));
-                LogWriter.Write(FormatCSVField(c_DBItemType.ToString()));
-                LogWriter.Write(FormatCSVField(DetermineBaseType(c_item_GItemType).ToString()));
-                LogWriter.Write(FormatCSVField(c_item_GItemType.ToString()));
-                LogWriter.Write(FormatCSVField(c_ItemQuality.ToString()));
-                LogWriter.Write(FormatCSVField(c_ItemLevel));
-                LogWriter.Write(FormatCSVField(pickupItem));
-                LogWriter.Write("\n");
             }
         }
 
