@@ -3,6 +3,7 @@ using System.Linq;
 using Trinity.Config.Combat;
 using Trinity.DbProvider;
 using Trinity.Technicals;
+using Zeta.Bot.Navigation;
 using Zeta.Common.Plugins;
 using Zeta.Game;
 using Zeta.Game.Internals.Actors;
@@ -34,6 +35,24 @@ namespace Trinity
 
             try
             {
+                CurrentCacheObject.IsBountyObjective = (c_CommonData.GetAttribute<int>(ActorAttributeType.BountyObjective) > 0);
+            }
+            catch (Exception)
+            {
+                Logger.LogDebug("Error refreshing IsBountyObjective");
+            }
+            try
+            {
+                CurrentCacheObject.IsQuestMonster = CurrentCacheObject.Object.CommonData.GetAttribute<int>(ActorAttributeType.QuestMonster) > 1;
+            }
+            catch (Exception ex)
+            {
+                Logger.LogDebug(LogCategory.CacheManagement, "Error reading IsQuestMonster for Unit sno:{0} raGuid:{1} name:{2} ex:{3}",
+                    CurrentCacheObject.ActorSNO, CurrentCacheObject.RActorGuid, CurrentCacheObject.InternalName, ex.Message);
+            }
+
+            try
+            {
                 CurrentCacheObject.IsMinimapActive = CurrentCacheObject.Object.CommonData.GetAttribute<int>(ActorAttributeType.MinimapActive) > 0;
             }
             catch (Exception ex)
@@ -52,6 +71,10 @@ namespace Trinity
                     CurrentCacheObject.ActorSNO, CurrentCacheObject.RActorGuid, CurrentCacheObject.InternalName, ex.Message);
             }
 
+            if (c_diaObject is DiaGizmo)
+            {
+                CurrentCacheObject.GizmoType = CurrentCacheObject.Gizmo.ActorInfo.GizmoType;
+            }
 
             if (!DataDictionary.CustomObjectRadius.TryGetValue(CurrentCacheObject.ActorSNO, out c_Radius))
             {
@@ -107,6 +130,8 @@ namespace Trinity
             }
             if (isGizmoDisabledByScript)
             {
+                ((MainGridProvider)MainGridProvider).AddCellWeightingObstacle(c_ActorSNO, c_Radius);
+                
                 CacheData.NavigationObstacles.Add(new CacheObstacleObject()
                 {
                     ActorSNO = c_ActorSNO,
@@ -119,8 +144,55 @@ namespace Trinity
                 AddToCache = false;
                 c_IgnoreSubStep = "GizmoDisabledByScript";
                 return AddToCache;
+
             }
 
+
+            // Anything that's Untargetable
+            bool Untargetable = false;
+            try
+            {
+                if (CurrentCacheObject.Object is DiaGizmo)
+                {
+                    Untargetable = CurrentCacheObject.Object.CommonData.GetAttribute<int>(ActorAttributeType.Untargetable) > 0;
+                }
+            }
+            catch
+            {
+               
+            }
+            if (Untargetable)
+            {
+                ((MainGridProvider)MainGridProvider).AddCellWeightingObstacle(c_ActorSNO, c_Radius);
+                CacheData.NavigationObstacles.Add(new CacheObstacleObject()
+                {
+                    ActorSNO = c_ActorSNO,
+                    Radius = c_Radius,
+                    Position = CurrentCacheObject.Position,
+                    RActorGUID = c_RActorGuid,
+                    ObjectType = c_ObjectType,
+                });
+
+                AddToCache = false;
+                c_IgnoreSubStep = "Untargetable";
+                return AddToCache;
+            }
+
+
+
+            // Anything that's Untargetable
+            bool Invulnerable = false;
+            try
+            {
+                if (CurrentCacheObject.Object is DiaGizmo)
+                {
+                    Untargetable = CurrentCacheObject.Object.CommonData.GetAttribute<int>(ActorAttributeType.Invulnerable) > 0;
+                }
+            }
+            catch
+            {
+
+            }
 
             bool noDamage = false;
             try
@@ -253,28 +325,31 @@ namespace Trinity
                         }
                     }
                     break;
-                case GObjectType.Interactable:
+                case GObjectType.JumpLinkPortal:
                     {
-                        AddToCache = true;
-
                         // Same world portal check
-                        if (DataDictionary.SameWorldPortals.Contains(CurrentCacheObject.ActorSNO) &&
-                            CacheData.SameWorldPortals.Any(p => p.WorldID == Trinity.Player.WorldID &&
-                                DateTime.UtcNow.Subtract(p.LastInteract).TotalSeconds < V.F("Cache.SameWorldPortalRange.InteractSeconds") && p.StartPosition.Distance2D(Trinity.Player.Position) > V.F("Cache.SameWorldPortalRange.MinRange")) &&
-                                CurrentCacheObject.RadiusDistance <= V.F("Cache.SameWorldPortalRange.MaxRange"))
+                        if (CacheData.SameWorldPortals.Any(p => p.WorldID == Trinity.Player.WorldID &&
+                                DateTime.UtcNow.Subtract(p.LastInteract).TotalSeconds < 30 && 
+                                p.StartPosition.Distance2D(Trinity.Player.Position) > 5f) &&
+                                CurrentCacheObject.CentreDistance <= 90f)
                         {
-                            c_ObjectHash = HashGenerator.GenerateWorldObjectHash(c_ActorSNO, CurrentCacheObject.Position, c_ObjectType.ToString(), Trinity.CurrentWorldDynamicId);
-
                             GenericBlacklist.AddToBlacklist(new GenericCacheObject()
                             {
-                                Key = c_ObjectHash,
+                                Key = CurrentCacheObject.ObjectHash,
                                 Value = null,
-                                Expires = DateTime.UtcNow.AddSeconds(45)
+                                Expires = DateTime.UtcNow.AddSeconds(30)
                             });
 
                             AddToCache = false;
                             c_IgnoreSubStep = "RecentSameWorldPortal";
                         }
+                        break;
+                    }
+                case GObjectType.Interactable:
+                    {
+                        AddToCache = true;
+
+                        
 
                         // SameWorldPortals can have GizmoState=1 (e.g. Gizmo "Used")
                         if (!DataDictionary.SameWorldPortals.Contains(CurrentCacheObject.ActorSNO))
@@ -296,6 +371,18 @@ namespace Trinity
                                 return AddToCache;
                             }
                         }
+
+                        int endAnimation;
+                        if (DataDictionary.InteractEndAnimations.TryGetValue(CurrentCacheObject.ActorSNO, out endAnimation))
+                        {
+                            if (endAnimation == (int)CurrentCacheObject.Gizmo.CommonData.CurrentAnimation)
+                            {
+                                AddToCache = false;
+                                c_IgnoreSubStep = "EndAnimation";
+                                return AddToCache;
+                            }
+                        }
+
 
                         c_Radius = c_diaObject.CollisionSphere.Radius;
                     }
@@ -445,6 +532,7 @@ namespace Trinity
 
                         if (noDamage)
                         {
+                            ((MainGridProvider)MainGridProvider).AddCellWeightingObstacle(c_ActorSNO, c_Radius);
                             CacheData.NavigationObstacles.Add(new CacheObstacleObject()
                             {
                                 ActorSNO = c_ActorSNO,
@@ -456,6 +544,23 @@ namespace Trinity
 
                             AddToCache = false;
                             c_IgnoreSubStep = "NoDamage";
+                            return AddToCache;
+                        }
+
+                        if (Invulnerable)
+                        {
+                            ((MainGridProvider)MainGridProvider).AddCellWeightingObstacle(c_ActorSNO, c_Radius);
+                            CacheData.NavigationObstacles.Add(new CacheObstacleObject()
+                            {
+                                ActorSNO = c_ActorSNO,
+                                Radius = c_Radius,
+                                Position = CurrentCacheObject.Position,
+                                RActorGUID = c_RActorGuid,
+                                ObjectType = c_ObjectType,
+                            });
+
+                            AddToCache = false;
+                            c_IgnoreSubStep = "Invulnerable";
                             return AddToCache;
                         }
 
@@ -503,6 +608,7 @@ namespace Trinity
 
                         if (noDamage)
                         {
+                            ((MainGridProvider)MainGridProvider).AddCellWeightingObstacle(c_ActorSNO, c_Radius);
                             CacheData.NavigationObstacles.Add(new CacheObstacleObject()
                             {
                                 ActorSNO = c_ActorSNO,
@@ -514,6 +620,23 @@ namespace Trinity
 
                             AddToCache = false;
                             c_IgnoreSubStep = "NoDamage";
+                            return AddToCache;
+                        }
+
+                        if (Invulnerable)
+                        {
+                            ((MainGridProvider)MainGridProvider).AddCellWeightingObstacle(c_ActorSNO, c_Radius);
+                            CacheData.NavigationObstacles.Add(new CacheObstacleObject()
+                            {
+                                ActorSNO = c_ActorSNO,
+                                Radius = c_Radius,
+                                Position = CurrentCacheObject.Position,
+                                RActorGUID = c_RActorGuid,
+                                ObjectType = c_ObjectType,
+                            });
+
+                            AddToCache = false;
+                            c_IgnoreSubStep = "Invulnerable";
                             return AddToCache;
                         }
 
@@ -627,13 +750,6 @@ namespace Trinity
                             c_IgnoreSubStep = "ForceVendorRunASAP";
                         }
 
-                        if (CurrentCacheObject.IsQuestMonster || CurrentCacheObject.IsMinimapActive)
-                        {
-                            AddToCache = true;
-                            c_IgnoreSubStep = "";
-                            return AddToCache;
-                        }
-
                         // Already open, blacklist it and don't look at it again
                         bool chestOpen = false;
                         try
@@ -676,6 +792,12 @@ namespace Trinity
                         }
 
                         if (Settings.WorldObject.DestructibleOption == DestructibleIgnoreOption.DestroyAll)
+                        {
+                            AddToCache = true;
+                            return AddToCache;
+                        }
+
+                        if (CurrentCacheObject.IsQuestMonster)
                         {
                             AddToCache = true;
                             return AddToCache;

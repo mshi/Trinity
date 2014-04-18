@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Security.Cryptography;
 using System.Text;
+using Trinity.Technicals;
 using Zeta.Common;
 using Zeta.Game.Internals.Actors;
 namespace Trinity
@@ -39,7 +40,14 @@ namespace Trinity
         {
             using (MD5 md5 = MD5.Create())
             {
-                string objHashBase = String.Format("{0}{1}{2}{3}", obj.ActorSNO, obj.Position, obj.Type, Trinity.CurrentWorldDynamicId);
+                string objHashBase;
+                if (obj.Type == GObjectType.Unit)
+                    objHashBase = obj.ActorSNO + obj.InternalName + obj.Position + obj.Type + Trinity.CurrentWorldDynamicId;
+                else if (obj.Type == GObjectType.Item)
+                    return GenerateItemHash(obj.Position, obj.ActorSNO, obj.InternalName, Trinity.CurrentWorldId, obj.ItemQuality, obj.ItemLevel);
+                else
+                    objHashBase = String.Format("{0}{1}{2}{3}", obj.ActorSNO, obj.Position, obj.Type, Trinity.CurrentWorldDynamicId);
+
                 string objHash = GetMd5Hash(md5, objHashBase);
                 return objHash;
             }
@@ -79,22 +87,25 @@ namespace Trinity
 
         static string GetMd5Hash(MD5 md5Hash, string input)
         {
-            // Convert the input string to a byte array and compute the hash. 
-            byte[] data = md5Hash.ComputeHash(Encoding.UTF8.GetBytes(input));
-
-            // Create a new Stringbuilder to collect the bytes 
-            // and create a string.
-            StringBuilder sBuilder = new StringBuilder();
-
-            // Loop through each byte of the hashed data  
-            // and format each one as a hexadecimal string. 
-            for (int i = 0; i < data.Length; i++)
+            using (new PerformanceLogger("GetMd5Hash"))
             {
-                sBuilder.Append(data[i].ToString("x2"));
-            }
+                // Convert the input string to a byte array and compute the hash. 
+                byte[] data = md5Hash.ComputeHash(Encoding.UTF8.GetBytes(input));
 
-            // Return the hexadecimal string. 
-            return sBuilder.ToString();
+                // Create a new Stringbuilder to collect the bytes 
+                // and create a string.
+                StringBuilder sBuilder = new StringBuilder();
+
+                // Loop through each byte of the hashed data  
+                // and format each one as a hexadecimal string. 
+                for (int i = 0; i < data.Length; i++)
+                {
+                    sBuilder.Append(data[i].ToString("x2"));
+                }
+
+                // Return the hexadecimal string. 
+                return sBuilder.ToString();
+            }
         }
         // Verify a hash against a string. 
         static bool VerifySha1Hash(MD5 md5Hash, string input, string hash)

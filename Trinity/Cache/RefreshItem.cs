@@ -14,208 +14,203 @@ namespace Trinity
     {
         private static bool RefreshItem()
         {
-            bool logNewItem = false;
-            bool AddToCache = false;
-
-            if (c_BalanceID == -1)
+            using (new PerformanceLogger("RefreshItem"))
             {
-                AddToCache = false;
-                c_IgnoreSubStep = "InvalidBalanceID";
-            }
+                bool logNewItem = false;
+                bool AddToCache = false;
 
-            var diaItem = c_diaObject as DiaItem;
-
-            if (diaItem == null)
-                return false;
-
-            if (diaItem.CommonData == null)
-                return false;
-
-            if (!diaItem.IsValid)
-                return false;
-
-            if (!diaItem.CommonData.IsValid)
-                return false;
-
-            c_ItemQuality = diaItem.CommonData.ItemQualityLevel;
-            c_ItemQualityLevelIdentified = ((DiaItem)c_diaObject).CommonData.GetAttribute<int>(ActorAttributeType.ItemQualityLevelIdentified);
-            c_ItemDisplayName = diaItem.CommonData.Name;
-            c_GameBalanceID = diaItem.CommonData.GameBalanceId;
-
-
-            c_ItemLevel = diaItem.CommonData.Level;
-            c_DBItemBaseType = diaItem.CommonData.ItemBaseType;
-            c_DBItemType = diaItem.CommonData.ItemType;
-            c_IsOneHandedItem = diaItem.CommonData.IsOneHand;
-            c_IsTwoHandedItem = diaItem.CommonData.IsTwoHand;
-            c_item_tFollowerType = diaItem.CommonData.FollowerSpecialType;
-            // Calculate item type
-            c_item_GItemType = DetermineItemType(c_InternalName, c_DBItemType, c_item_tFollowerType);
-
-            // And temporarily store the base type
-            GItemBaseType itemBaseType = DetermineBaseType(c_item_GItemType);
-
-            // Compute item quality from item link for Crafting Plans (Blacksmith or Jewler)
-            if (itemBaseType == GItemBaseType.Misc || itemBaseType == GItemBaseType.Unknown)
-            {
-                if (!CacheData.ItemLinkQuality.TryGetValue(c_ACDGUID, out c_ItemQuality))
-                {
-                    c_ItemQuality = diaItem.CommonData.ItemLinkColorQuality();
-                    CacheData.ItemLinkQuality.Add(c_ACDGUID, c_ItemQuality);
-                }
-            }
-
-            // Gem quality level hax
-            if (itemBaseType == GItemBaseType.Gem)
-                c_ItemLevel = diaItem.CommonData.GetGemQualityLevel();
-
-            float fExtraRange = 0f;
-
-            if (c_ItemQuality >= ItemQuality.Legendary)
-            {
-                // always pickup
-                AddToCache = true;
-            }
-            else
-            {
-                if (c_ItemQuality >= ItemQuality.Rare4)
-                    fExtraRange = CurrentBotLootRange;
-
-                if (iKeepLootRadiusExtendedFor > 0)
-                    fExtraRange += 90f;
-
-                if (c_CentreDistance > (CurrentBotLootRange + fExtraRange))
-                {
-                    c_IgnoreSubStep = "OutOfRange";
-                    AddToCache = false;
-                    // return here to save CPU on reading unncessary attributes for out of range items;
-                    if (!AddToCache)
-                        return AddToCache;
-                }
-            }
-
-            float damage, toughness, healing = 0;
-            bool isUpgrade = false;
-            diaItem.CommonData.GetStatChanges(out damage, out healing, out toughness);
-
-            if (damage > 0 && toughness > 0)
-                isUpgrade = true;
-
-            var pickupItem = new PickupItem
-            {
-                Name = c_ItemDisplayName,
-                InternalName = c_InternalName,
-                Level = c_ItemLevel,
-                Quality = c_ItemQuality,
-                BalanceID = c_BalanceID,
-                DBBaseType = c_DBItemBaseType,
-                DBItemType = c_DBItemType,
-                IsOneHand = c_IsOneHandedItem,
-                IsTwoHand = c_IsTwoHandedItem,
-                ItemFollowerType = c_item_tFollowerType,
-                DynamicID = c_GameDynamicID,
-                Position = CurrentCacheObject.Position,
-                ActorSNO = c_ActorSNO,
-                ACDGuid = c_ACDGUID,
-                IsUpgrade = isUpgrade,
-                UpgradeDamage = damage,
-                UpgradeToughness = toughness,
-                UpgradeHealing = healing
-            };
-
-
-            // Treat all globes as a yes
-            if (c_item_GItemType == GItemType.HealthGlobe)
-            {
-                c_ObjectType = GObjectType.HealthGlobe;
-                // Create or alter this cached object type
-                CacheData.ObjectType[c_RActorGuid] = c_ObjectType;
-                AddToCache = true;
-                return AddToCache;
-            }
-
-            // Treat all globes as a yes
-            if (c_item_GItemType == GItemType.PowerGlobe)
-            {
-                c_ObjectType = GObjectType.PowerGlobe;
-                // Create or alter this cached object type
-                CacheData.ObjectType[c_RActorGuid] = c_ObjectType;
-                AddToCache = true;
-                return AddToCache;
-            }
-
-            // Item stats
-            logNewItem = RefreshItemStats(itemBaseType);
-
-            // Get whether or not we want this item, cached if possible
-            if (!CacheData.PickupItem.TryGetValue(c_RActorGuid, out AddToCache))
-            {
-                if (pickupItem.IsTwoHand && Settings.Loot.Pickup.IgnoreTwoHandedWeapons && c_ItemQuality < ItemQuality.Legendary)
+                if (c_BalanceID == -1)
                 {
                     AddToCache = false;
+                    c_IgnoreSubStep = "InvalidBalanceID";
                 }
-                else if (Settings.Loot.ItemFilterMode == ItemFilterMode.DemonBuddy)
+
+                var diaItem = c_diaObject as DiaItem;
+
+                if (diaItem == null)
+                    return false;
+
+                if (diaItem.CommonData == null)
+                    return false;
+
+                if (!diaItem.IsValid)
+                    return false;
+
+                if (!diaItem.CommonData.IsValid)
+                    return false;
+
+                GItemBaseType itemBaseType;
+                using (new PerformanceLogger("ItemProperties"))
                 {
-                    AddToCache = ItemManager.Current.ShouldPickUpItem((ACDItem)c_CommonData);
+                    c_ItemQuality = diaItem.CommonData.ItemQualityLevel;
+                    c_ItemQualityLevelIdentified = ((DiaItem)c_diaObject).CommonData.GetAttribute<int>(ActorAttributeType.ItemQualityLevelIdentified);
+                    c_ItemDisplayName = diaItem.CommonData.Name;
+                    c_GameBalanceID = diaItem.CommonData.GameBalanceId;
+
+
+                    c_ItemLevel = diaItem.CommonData.Level;
+                    c_DBItemBaseType = diaItem.CommonData.ItemBaseType;
+                    c_DBItemType = diaItem.CommonData.ItemType;
+                    c_IsOneHandedItem = diaItem.CommonData.IsOneHand;
+                    c_IsTwoHandedItem = diaItem.CommonData.IsTwoHand;
+                    c_item_tFollowerType = diaItem.CommonData.FollowerSpecialType;
+                    // Calculate item type
+                    c_item_GItemType = DetermineItemType(c_InternalName, c_DBItemType, c_item_tFollowerType);
+
+                    // And temporarily store the base type
+                    itemBaseType = DetermineBaseType(c_item_GItemType);
+
+                    // Compute item quality from item link for Crafting Plans (Blacksmith or Jewler)
+                    if (itemBaseType == GItemBaseType.Misc || itemBaseType == GItemBaseType.Unknown)
+                    {
+                        if (!CacheData.ItemLinkQuality.TryGetValue(c_ACDGUID, out c_ItemQuality))
+                        {
+                            c_ItemQuality = diaItem.CommonData.ItemLinkColorQuality();
+                            CacheData.ItemLinkQuality.Add(c_ACDGUID, c_ItemQuality);
+                        }
+                    }
+
+                    // Gem quality level hax
+                    if (itemBaseType == GItemBaseType.Gem)
+                        c_ItemLevel = diaItem.CommonData.GetGemQualityLevel();
                 }
-                else if (Settings.Loot.ItemFilterMode == ItemFilterMode.TrinityWithItemRules)
+
+                CurrentCacheObject.ObjectHash = HashGenerator.GenerateItemHash(
+                    CurrentCacheObject.Position,
+                    CurrentCacheObject.ActorSNO,
+                    CurrentCacheObject.InternalName,
+                    Player.WorldID,
+                    c_ItemQuality,
+                    c_ItemLevel);
+
+                float fExtraRange = 0f;
+
+                if (c_ItemQuality >= ItemQuality.Legendary)
                 {
-                    AddToCache = ItemRulesPickupValidation(pickupItem);
+                    // always pickup
+                    AddToCache = true;
                 }
-                else // Trinity Scoring Only
+                else
                 {
-                    AddToCache = PickupItemValidation(pickupItem);
+                    if (c_ItemQuality >= ItemQuality.Rare4)
+                        fExtraRange = CurrentBotLootRange;
+
+                    if (iKeepLootRadiusExtendedFor > 0)
+                        fExtraRange += 90f;
+
+                    if (c_CentreDistance > (CurrentBotLootRange + fExtraRange))
+                    {
+                        c_IgnoreSubStep = "OutOfRange";
+                        AddToCache = false;
+                        // return here to save CPU on reading unncessary attributes for out of range items;
+                        if (!AddToCache)
+                            return AddToCache;
+                    }
                 }
 
-                // Pickup low level enabled, and we're a low level
-                if (!AddToCache && Settings.Loot.Pickup.PickupLowLevel && Player.Level <= 10)
+                float damage, toughness, healing = 0;
+                bool isUpgrade = false;
+                using (new PerformanceLogger("ItemUpgradeStats"))
                 {
-                    AddToCache = PickupItemValidation(pickupItem);
+                    diaItem.CommonData.GetStatChanges(out damage, out healing, out toughness);
+
+                    if (damage > 0 && toughness > 0)
+                        isUpgrade = true;
                 }
 
-                CacheData.PickupItem.Add(c_RActorGuid, AddToCache);
-            }
-
-            // Using DB built-in item rules
-            if (AddToCache && ForceVendorRunASAP)
-                c_IgnoreSubStep = "ForcedVendoring";
-
-            // Didn't pass pickup rules, so ignore it
-            if (!AddToCache && c_IgnoreSubStep == String.Empty)
-                c_IgnoreSubStep = "NoMatchingRule";
-
-            if (Settings.Advanced.LogDroppedItems && logNewItem && c_item_GItemType != GItemType.HealthGlobe && c_item_GItemType != GItemType.HealthPotion && c_item_GItemType != GItemType.PowerGlobe)
-                LogDroppedItem();
-
-            return AddToCache;
-        }
-
-        private static void LogDroppedItem()
-        {
-            string droppedItemLogPath = Path.Combine(FileManager.TrinityLogsPath, String.Format("ItemsDropped.csv"));
-
-            bool pickupItem = false;
-            CacheData.PickupItem.TryGetValue(c_RActorGuid, out pickupItem);
-
-            bool writeHeader = !File.Exists(droppedItemLogPath);
-            using (var LogWriter = new StreamWriter(droppedItemLogPath, true))
-            {
-                if (writeHeader)
+                var pickupItem = new PickupItem
                 {
-                    LogWriter.WriteLine("ActorSNO,GameBalanceID,Name,InternalName,DBBaseType,DBItemType,TBaseType,TItemType,Quality,Level,Pickup");
+                    Name = c_ItemDisplayName,
+                    InternalName = c_InternalName,
+                    Level = c_ItemLevel,
+                    Quality = c_ItemQuality,
+                    BalanceID = c_BalanceID,
+                    DBBaseType = c_DBItemBaseType,
+                    DBItemType = c_DBItemType,
+                    TBaseType = itemBaseType,
+                    TType = c_item_GItemType,
+                    IsOneHand = c_IsOneHandedItem,
+                    IsTwoHand = c_IsTwoHandedItem,
+                    ItemFollowerType = c_item_tFollowerType,
+                    DynamicID = c_GameDynamicID,
+                    Position = CurrentCacheObject.Position,
+                    ActorSNO = c_ActorSNO,
+                    ACDGuid = c_ACDGUID,
+                    RActorGUID = c_RActorGuid,
+                    IsUpgrade = isUpgrade,
+                    UpgradeDamage = damage,
+                    UpgradeToughness = toughness,
+                    UpgradeHealing = healing
+                };
+
+
+                // Treat all globes as a yes
+                if (c_item_GItemType == GItemType.HealthGlobe)
+                {
+                    c_ObjectType = GObjectType.HealthGlobe;
+                    // Create or alter this cached object type
+                    CacheData.ObjectType[c_RActorGuid] = c_ObjectType;
+                    AddToCache = true;
+                    return AddToCache;
                 }
-                LogWriter.Write(FormatCSVField(c_ActorSNO));
-                LogWriter.Write(FormatCSVField(c_GameBalanceID));
-                LogWriter.Write(FormatCSVField(c_ItemDisplayName));
-                LogWriter.Write(FormatCSVField(c_InternalName));
-                LogWriter.Write(FormatCSVField(c_DBItemBaseType.ToString()));
-                LogWriter.Write(FormatCSVField(c_DBItemType.ToString()));
-                LogWriter.Write(FormatCSVField(DetermineBaseType(c_item_GItemType).ToString()));
-                LogWriter.Write(FormatCSVField(c_item_GItemType.ToString()));
-                LogWriter.Write(FormatCSVField(c_ItemQuality.ToString()));
-                LogWriter.Write(FormatCSVField(c_ItemLevel));
-                LogWriter.Write(FormatCSVField(pickupItem));
-                LogWriter.Write("\n");
+
+                // Treat all globes as a yes
+                if (c_item_GItemType == GItemType.PowerGlobe)
+                {
+                    c_ObjectType = GObjectType.PowerGlobe;
+                    // Create or alter this cached object type
+                    CacheData.ObjectType[c_RActorGuid] = c_ObjectType;
+                    AddToCache = true;
+                    return AddToCache;
+                }
+
+                // Item stats
+                logNewItem = RefreshItemStats(itemBaseType);
+
+                using (new PerformanceLogger("PickupItemValidation"))
+                {
+                    // Get whether or not we want this item, cached if possible
+                    if (!CacheData.PickupItem.TryGetValue(c_RActorGuid, out AddToCache))
+                    {
+                        if (pickupItem.IsTwoHand && Settings.Loot.Pickup.IgnoreTwoHandedWeapons && c_ItemQuality < ItemQuality.Legendary)
+                        {
+                            AddToCache = false;
+                        }
+                        else if (Settings.Loot.ItemFilterMode == ItemFilterMode.DemonBuddy)
+                        {
+                            AddToCache = ItemManager.Current.ShouldPickUpItem((ACDItem)c_CommonData);
+                        }
+                        else if (Settings.Loot.ItemFilterMode == ItemFilterMode.TrinityWithItemRules)
+                        {
+                            AddToCache = ItemRulesPickupValidation(pickupItem);
+                        }
+                        else // Trinity Scoring Only
+                        {
+                            AddToCache = PickupItemValidation(pickupItem);
+                        }
+
+                        // Pickup low level enabled, and we're a low level
+                        if (!AddToCache && Settings.Loot.Pickup.PickupLowLevel && Player.Level <= 10)
+                        {
+                            AddToCache = PickupItemValidation(pickupItem);
+                        }
+
+                        CacheData.PickupItem.Add(c_RActorGuid, AddToCache);
+                    }
+                }
+                // Using DB built-in item rules
+                if (AddToCache && ForceVendorRunASAP)
+                    c_IgnoreSubStep = "ForcedVendoring";
+
+                // Didn't pass pickup rules, so ignore it
+                if (!AddToCache && c_IgnoreSubStep == String.Empty)
+                    c_IgnoreSubStep = "NoMatchingRule";
+
+                if (Settings.Advanced.LogDroppedItems && logNewItem && c_item_GItemType != GItemType.HealthGlobe && c_item_GItemType != GItemType.HealthPotion && c_item_GItemType != GItemType.PowerGlobe)
+                    //LogDroppedItem();
+                    ItemDroppedAppender.Instance.AppendDroppedItem(pickupItem);
+
+                return AddToCache;
             }
         }
 

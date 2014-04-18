@@ -181,15 +181,15 @@ namespace Trinity
                         }
                     }
                 }
+
                 /*
-                 * Give weights to objects
+                 *  Set Weights, assign CurrentTarget
                  */
-                // Special flag for special whirlwind circumstances
-                bAnyNonWWIgnoreMobsInRange = false;
-                // Now give each object a weight *IF* we aren't skipping direcly to a safe-spot
+
                 if (!hasFoundSafePoint)
                 {
                     RefreshDiaGetWeights();
+
                     RefreshSetKiting(ref KiteAvoidDestination, NeedToKite, ref TryToKite);
                 }
                 // Not heading straight for a safe-spot?
@@ -252,11 +252,38 @@ namespace Trinity
                         bDontMoveMeIAmDoingShit = true;
                     }
 
+                    if (!Player.InActiveEvent)
+                    {
+                        EventStartPosition = Vector3.Zero;
+                        EventStartTime = DateTime.MinValue;
+                    }
+
+                    if (CurrentTarget == null && Player.InActiveEvent && DateTime.UtcNow.Subtract(EventStartTime).TotalSeconds < 30)
+                    {
+                        if (EventStartPosition == Vector3.Zero)
+                        {
+                            EventStartPosition = Player.Position;
+                            EventStartTime = DateTime.UtcNow;
+                        }
+
+                        CurrentTarget = new TrinityCacheObject()
+                        {
+                            Position = EventStartPosition,
+                            Type = GObjectType.Avoidance,
+                            Weight = 20000,
+                            CentreDistance = 2f,
+                            RadiusDistance = 2f,
+                            InternalName = "WaitForEvent"
+                        };
+                        Logger.Log("Waiting for Event");
+                    }
+                    
                     // Still no target, let's see if we should backtrack or wait for wrath to come off cooldown...
                     if (CurrentTarget == null)
                     {
                         RefreshDoBackTrack();
                     }
+
                     // Still no target, let's end it all!
                     if (CurrentTarget == null)
                     {
@@ -284,7 +311,7 @@ namespace Trinity
 
                         Logger.Log(TrinityLogLevel.Verbose, LogCategory.Weight,
                             "Found New Target {0} dist={1:0} IsElite={2} Radius={3:0.0} Weight={4:0} ActorSNO={5} " +
-                            "Anim={6} Target++={7} Type={8} ",
+                            "Anim={6} TargetedCount={7} Type={8} ",
                             CurrentTarget.InternalName,
                             CurrentTarget.CentreDistance,
                             CurrentTarget.IsEliteRareUnique,
@@ -407,8 +434,8 @@ namespace Trinity
                                     duration,
                                     (AddToCache ? "Added " : "Ignored"),
                                     (!AddToCache ? ("By: " + (c_IgnoreReason != "None" ? c_IgnoreReason + "." : "") + c_IgnoreSubStep) : ""),
-                                    c_diaObject.ActorType,
-                                    c_diaObject is DiaGizmo ? ((DiaGizmo)c_diaObject).ActorInfo.GizmoType.ToString() : "",
+                                    CurrentCacheObject.ActorType,
+                                    CurrentCacheObject.GizmoType != GizmoType.None ? CurrentCacheObject.GizmoType.ToString() : "",
                                     c_ObjectType,
                                     c_InternalName,
                                     c_ActorSNO,
@@ -562,14 +589,7 @@ namespace Trinity
                 {
                     ForceCloseRangeTarget = false;
                 }
-
-                // Bunch of variables used throughout
-                CacheData.MonsterObstacles = new HashSet<CacheObstacleObject>();
-
-                //CacheData.TimeBoundAvoidance = new HashSet<CacheObstacleObject>();
-                CacheData.TimeBoundAvoidance.RemoveWhere(aoe => aoe.Expires < DateTime.UtcNow);
-                CacheData.NavigationObstacles = new HashSet<CacheObstacleObject>();
-
+                
                 //AnyElitesPresent = false;
                 AnyMobsInRange = false;
 
@@ -601,11 +621,12 @@ namespace Trinity
 
                 // Flag for if we should search for an avoidance spot or not
                 StandingInAvoidance = false;
+
                 // Highest weight found as we progress through, so we can pick the best target at the end (the one with the highest weight)
                 w_HighestWeightFound = 0;
+
                 // Here's the list we'll use to store each object
                 ObjectCache = new List<TrinityCacheObject>();
-                hashDoneThisRactor = new HashSet<int>();
             }
         }
 
@@ -656,11 +677,12 @@ namespace Trinity
 
         private static void RefreshDoBackTrack()
         {
+            
             // See if we should wait for [playersetting] milliseconds for possible loot drops before continuing run
-            if (DateTime.UtcNow.Subtract(lastHadUnitInSights).TotalMilliseconds <= Settings.Combat.Misc.DelayAfterKill ||
+            if (CurrentTarget == null && (DateTime.UtcNow.Subtract(lastHadUnitInSights).TotalMilliseconds <= Settings.Combat.Misc.DelayAfterKill ||
                 DateTime.UtcNow.Subtract(lastHadEliteUnitInSights).TotalMilliseconds <= Settings.Combat.Misc.DelayAfterKill ||
                 DateTime.UtcNow.Subtract(lastHadBossUnitInSights).TotalMilliseconds <= 3000 ||
-                DateTime.UtcNow.Subtract(lastHadContainerInSights).TotalMilliseconds <= 2000)
+                DateTime.UtcNow.Subtract(Helpers.Composites.LastFoundHoradricCache).TotalMilliseconds <= 5000))
             {
                 CurrentTarget = new TrinityCacheObject()
                                     {
@@ -673,52 +695,8 @@ namespace Trinity
                                     };
                 Logger.Log(TrinityLogLevel.Debug, LogCategory.Behavior, "Waiting for loot to drop, delay: {0}ms", Settings.Combat.Misc.DelayAfterKill);
             }
-            // Now see if we need to do any backtracking
-            if (CurrentTarget == null && iTotalBacktracks >= 2 && Settings.Combat.Misc.AllowBacktracking && !Player.IsInTown)
-            // Never bother with the 1st backtrack position nor if we are in town
-            {
-                // See if we're already within 18 feet of our start position first
-                if (Vector3.Distance(Player.Position, vBacktrackList[1]) <= 18f)
-                {
-                    vBacktrackList = new SortedList<int, Vector3>();
-                    iTotalBacktracks = 0;
-                }
-                // See if we can raytrace to the final location and it's within 25 feet
-                if (iTotalBacktracks >= 2 && Vector3.Distance(Player.Position, vBacktrackList[1]) <= 25f &&
-                    NavHelper.CanRayCast(Player.Position, vBacktrackList[1]))
-                {
-                    vBacktrackList = new SortedList<int, Vector3>();
-                    iTotalBacktracks = 0;
-                }
-                if (iTotalBacktracks >= 2)
-                {
-                    // See if we can skip to the next backtracker location first
-                    if (iTotalBacktracks >= 3)
-                    {
-                        if (Vector3.Distance(Player.Position, vBacktrackList[iTotalBacktracks - 1]) <= 10f)
-                        {
-                            vBacktrackList.Remove(iTotalBacktracks);
-                            iTotalBacktracks--;
-                        }
-                    }
-                    CurrentTarget = new TrinityCacheObject()
-                                        {
-                                            Position = vBacktrackList[iTotalBacktracks],
-                                            Type = GObjectType.Backtrack,
-                                            Weight = 20000,
-                                            CentreDistance = Vector3.Distance(Player.Position, vBacktrackList[iTotalBacktracks]),
-                                            RadiusDistance = Vector3.Distance(Player.Position, vBacktrackList[iTotalBacktracks]),
-                                            InternalName = "Backtrack"
-                                        };
-                }
-            }
-            else
-            {
-                vBacktrackList = new SortedList<int, Vector3>();
-                iTotalBacktracks = 0;
-            }
+           
             // End of backtracking check
-            //TODO : If this code is obselete remove it (Check that) 
             // Finally, a special check for waiting for wrath of the berserker cooldown before engaging Azmodan
             if (CurrentTarget == null && Hotbar.Contains(SNOPower.Barbarian_WrathOfTheBerserker) && Settings.Combat.Barbarian.WaitWOTB && !SNOPowerUseTimer(SNOPower.Barbarian_WrathOfTheBerserker) &&
                 ZetaDia.CurrentWorldId == 121214 &&

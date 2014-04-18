@@ -80,7 +80,10 @@ namespace Trinity.XmlTags
             ObjectFound,
             ExitFound,
             SceneFound,
-            SceneLeftOrActorFound
+            SceneLeftOrActorFound,
+            BountyComplete,
+            RiftComplete,
+            PortalExitFound,
         }
 
         [XmlAttribute("endType", true)]
@@ -389,9 +392,6 @@ namespace Trinity.XmlTags
 
         [XmlAttribute("interactRange")]
         public float ObjectInteractRange { get; set; }
-
-        [XmlAttribute("stayAfterBounty", true)]
-        public bool StayAfterBounty { get; set; }
 
         HashSet<Tuple<int, Vector3>> foundObjects = new HashSet<Tuple<int, Vector3>>();
 
@@ -811,7 +811,14 @@ namespace Trinity.XmlTags
             return
             new PrioritySelector(
                 TimeoutCheck(),
-                new Decorator(ret => !StayAfterBounty && GetIsBountyDone(),
+
+                new Decorator(ret => EndType == TrinityExploreEndType.PortalExitFound && 
+                    PortalExitMarker() != null && PortalExitMarker().Position.Distance2D(myPos) <= MarkerDistance,
+                    new Sequence(
+                        new Action(ret => Logger.Log(TrinityLogLevel.Info, LogCategory.UserInformation, "Found portal exit! Tag Finished.")),
+                        new Action(ret => isDone = true)
+                    )
+                ), new Decorator(ret => EndType == TrinityExploreEndType.BountyComplete && GetIsBountyDone(),
                     new Sequence(
                         new Action(ret => Logger.Log(TrinityLogLevel.Info, LogCategory.UserInformation, "Bounty is done. Tag Finished.", IgnoreLastNodes)),
                         new Action(ret => isDone = true)
@@ -879,6 +886,11 @@ namespace Trinity.XmlTags
                     )
                 )
             );
+        }
+
+        private static MinimapMarker PortalExitMarker()
+        {
+            return ZetaDia.Minimap.Markers.CurrentWorldMarkers.FirstOrDefault(m => m.IsPortalExit);
         }
 
         private bool AlternateActorsFound()
@@ -1512,47 +1524,110 @@ namespace Trinity.XmlTags
             InitDone = false;
         }
 
-        public bool GetIsBountyDone()
+        public bool IsInAdventureMode()
         {
             // Only valid for Adventure mode
-            if (ZetaDia.CurrentAct != Act.OpenWorld)
+            if (ZetaDia.CurrentAct == Act.OpenWorld)
+                return true;
+
+            return false;
+        }
+
+        private DateTime _LastCheckRiftDone = DateTime.MinValue;
+
+        public bool GetIsRiftDone()
+        {
+            if (DateTime.UtcNow.Subtract(_LastCheckRiftDone).TotalSeconds < 1)
                 return false;
 
-            // We're in a rift, not a bounty!
+            _LastCheckRiftDone = DateTime.UtcNow;
+
+            if (ZetaDia.Me.IsInBossEncounter)
+            {
+                return false;
+            }
+            
             if (ZetaDia.CurrentAct == Act.OpenWorld && DataDictionary.RiftWorldIds.Contains(ZetaDia.CurrentWorldId))
-                return false;
+            {
+                //X1_LR_DungeonFinder = 337492,
+                if (ZetaDia.ActInfo.AllQuests.Any(q => q.QuestSNO == 337492 && q.State == QuestState.InProgress))
+                    return false;
 
+                // Bounty Turn-in
+                if (ZetaDia.ActInfo.AllQuests.Any(q => DataDictionary.BountyTurnInQuests.Contains(q.QuestSNO) && q.State == QuestState.InProgress))
+                    return true;
+
+            }
+            return false;
+        }
+
+        private DateTime _LastCheckBountyDone = DateTime.MinValue;
+
+        public bool GetIsBountyDone()
+        {
             try
             {
-                var b = ZetaDia.ActInfo.ActiveBounty;
-                if (b == null)
-                {
-                    Logger.Log("Active bounty returned null, Assuming done.");
-                    return true;
-                }
-                if (!b.Info.IsValid)
-                {
-                    Logger.Log("Does this even work? Thinks the bounty is not valid.");
-                }
-                if (b.Info.QuestSNO > 500000 || b.Info.QuestSNO < 200000)
-                {
-                    Logger.Log("Got some weird numbers going on with the QuestSNO of the active bounty. Assuming glitched and done.");
-                    return true;
-                }
-                //If completed or on next step, we are good.
-                if (b.Info.State == QuestState.Completed)
-                {
-                    Logger.Log("Seems completed!");
-                    return true;
-                }
+
+                if (DateTime.UtcNow.Subtract(_LastCheckBountyDone).TotalSeconds < 1)
+                    return false;
+
+                _LastCheckBountyDone = DateTime.UtcNow;
+                
+                // Only valid for Adventure mode
+                if (ZetaDia.CurrentAct != Act.OpenWorld)
+                    return false;
+
+                // We're in a rift, not a bounty!
+                if (ZetaDia.CurrentAct == Act.OpenWorld && DataDictionary.RiftWorldIds.Contains(ZetaDia.CurrentWorldId))
+                    return false;
+
                 if (ZetaDia.IsInTown)
                 {
+                    Logger.Log("In Town, Assuming done.");
                     return true;
                 }
                 if (ZetaDia.Me.IsInBossEncounter)
                 {
                     return false;
                 }
+
+                // Bounty Turn-in
+                if (ZetaDia.ActInfo.AllQuests.Any(q => DataDictionary.BountyTurnInQuests.Contains(q.QuestSNO) && q.State == QuestState.InProgress))
+                {
+                    Logger.Log("Bounty Turn-In available, Assuming done.");
+                    return true;
+                }
+
+                var b = ZetaDia.ActInfo.ActiveBounty;
+                if (b == null)
+                {
+                    Logger.Log("Active bounty returned null, Assuming done.");
+                    return true;
+                }
+                if (b == null && ZetaDia.ActInfo.ActiveQuests.Any(q => q.Quest.ToString().ToLower().StartsWith("x1_AdventureMode_BountyTurnin") && q.State == QuestState.InProgress))
+                {
+                    Logger.Log("Bounty Turn-in quest is In-Progress, Assuming done.");
+                    return true;
+                }
+                if (b != null)
+                {
+                    if (!b.Info.IsValid)
+                    {
+                        Logger.Log("Does this even work? Thinks the bounty is not valid.");
+                    }
+                    if (b.Info.QuestSNO > 500000 || b.Info.QuestSNO < 200000)
+                    {
+                        Logger.Log("Got some weird numbers going on with the QuestSNO of the active bounty. Assuming glitched and done.");
+                        return true;
+                    }
+                    //If completed or on next step, we are good.
+                    if (b.Info.State == QuestState.Completed)
+                    {
+                        Logger.Log("Seems completed!");
+                        return true;
+                    }
+                }
+
             }
             catch (Exception ex)
             {

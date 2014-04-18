@@ -197,14 +197,14 @@ namespace Trinity
                 CombatBase.CanCast(SNOPower.Witchdoctor_Hex) && hasAngryChicken && Player.PrimaryResource >= 49)
             {
                 ShouldRefreshHotbarAbilities = true;
-                return new TrinityPower(SNOPower.Witchdoctor_Hex, 0f, Vector3.Zero, CurrentWorldDynamicId, -1, 0, 2, WAIT_FOR_ANIM);
+                return new TrinityPower(SNOPower.Witchdoctor_Hex);
             }
 
             // Hex Spam Cast without angry chicken
             if (!UseOOCBuff && !IsCurrentlyAvoiding && CombatBase.CanCast(SNOPower.Witchdoctor_Hex) && !Player.IsIncapacitated && Player.PrimaryResource >= 49 && !hasAngryChicken &&
                (TargetUtil.AnyElitesInRange(12) || TargetUtil.AnyMobsInRange(12, 2) || TargetUtil.IsEliteTargetInRange(18f)))
             {
-                return new TrinityPower(SNOPower.Witchdoctor_Hex, 0f, Vector3.Zero, CurrentWorldDynamicId, -1, 0, 0, NO_WAIT_ANIM);
+                return new TrinityPower(SNOPower.Witchdoctor_Hex);
             }
             // Mass Confuse, elites only or big mobs or to escape on low health
             if (!UseOOCBuff && CombatBase.CanCast(SNOPower.Witchdoctor_MassConfusion) && !Player.IsIncapacitated && Player.PrimaryResource >= 74 &&
@@ -214,29 +214,29 @@ namespace Trinity
                 return new TrinityPower(SNOPower.Witchdoctor_MassConfusion, 0f, Vector3.Zero, -1, CurrentTarget.ACDGuid, 1, 1, WAIT_FOR_ANIM);
             }
             // Big Bad Voodoo, elites and bosses only
-            if (!UseOOCBuff && CombatBase.CanCast(SNOPower.Witchdoctor_BigBadVoodoo) && !Player.IsIncapacitated && TargetUtil.EliteOrTrashInRange(12f))
+            if (!UseOOCBuff && CombatBase.CanCast(SNOPower.Witchdoctor_BigBadVoodoo) && !Player.IsIncapacitated && (TargetUtil.EliteOrTrashInRange(25f) || CurrentTarget.IsBoss))
             {
-                return new TrinityPower(SNOPower.Witchdoctor_BigBadVoodoo, 0f, Vector3.Zero, CurrentWorldDynamicId, -1, 0, 0, WAIT_FOR_ANIM);
+                return new TrinityPower(SNOPower.Witchdoctor_BigBadVoodoo);
             }
 
             // Grasp of the Dead, look below, droping globes and dogs when using it on elites and 3 norms
             if (!UseOOCBuff && !IsCurrentlyAvoiding && CombatBase.CanCast(SNOPower.Witchdoctor_GraspOfTheDead) && !Player.IsIncapacitated &&
-                (TargetUtil.AnyMobsInRange(30, 2)) &&
+                (TargetUtil.AnyMobsInRange(30, 2) || TargetUtil.EliteOrTrashInRange(30f)) &&
                 Player.PrimaryResource >= 78)
             {
                 var bestClusterPoint = TargetUtil.GetBestClusterPoint(15);
 
-                return new TrinityPower(SNOPower.Witchdoctor_GraspOfTheDead, 25f, bestClusterPoint, CurrentWorldDynamicId, -1, 0, 0, WAIT_FOR_ANIM);
+                return new TrinityPower(SNOPower.Witchdoctor_GraspOfTheDead, 25f, bestClusterPoint);
             }
 
             // Piranhas
             if (!UseOOCBuff && !IsCurrentlyAvoiding && CombatBase.CanCast(SNOPower.Witchdoctor_Piranhas) && !Player.IsIncapacitated &&
-                (TargetUtil.AnyMobsInRange(30, 2)) &&
+                (TargetUtil.AnyMobsInRange(30, 2) || TargetUtil.ClusterExists(15f, 45f, 2, true) || TargetUtil.AnyElitesInRange(45f)) &&
                 Player.PrimaryResource >= 250)
             {
-                var bestClusterPoint = TargetUtil.GetBestClusterPoint(15);
+                var bestClusterPoint = TargetUtil.GetBestClusterPoint(15f);
 
-                return new TrinityPower(SNOPower.Witchdoctor_Piranhas, 25f, bestClusterPoint, CurrentWorldDynamicId, -1, 0, 0, WAIT_FOR_ANIM);
+                return new TrinityPower(SNOPower.Witchdoctor_Piranhas, 25f, bestClusterPoint);
             }
 
             //skillDict.Add("Horrify", SNOPower.Witchdoctor_Horrify);
@@ -361,10 +361,9 @@ namespace Trinity
 
             bool firebatsMaintain =
               ObjectCache.Any(u => u.IsUnit &&
-                  u.IsFacingPlayer && u.Weight > 0 &&
-                  SpellHistory.TimeSinceUse(SNOPower.Witchdoctor_Firebats) <= TimeSpan.FromMilliseconds(150d) &&
+                  u.IsPlayerFacing(70f) && u.Weight > 0 &&
                   u.CentreDistance <= V.F("WitchDoctor.Firebats.MaintainRange") &&
-                  u.Unit.Movement.IsMoving);
+                  SpellHistory.TimeSinceUse(SNOPower.Witchdoctor_Firebats) <= TimeSpan.FromMilliseconds(250d));
 
             // Fire Bats:Cloud of bats 
             if (!UseOOCBuff && !IsCurrentlyAvoiding && !Player.IsIncapacitated && hasCloudOfBats && (TargetUtil.AnyMobsInRange(8f) || firebatsMaintain) &&
@@ -479,6 +478,9 @@ namespace Trinity
                 return new TrinityPower(SNOPower.Witchdoctor_AcidCloud, 12f, Vector3.Zero, -1, -1, 0, 0, WAIT_FOR_ANIM);
             if (Hotbar.Contains(SNOPower.Witchdoctor_Sacrifice) && Hotbar.Contains(SNOPower.Witchdoctor_SummonZombieDog) && PlayerOwnedZombieDog > 0 && Settings.Combat.WitchDoctor.ZeroDogs)
                 return new TrinityPower(SNOPower.Witchdoctor_Sacrifice, 12f, Vector3.Zero, -1, -1, 1, 2, WAIT_FOR_ANIM);
+
+            if (Hotbar.Contains(SNOPower.Witchdoctor_SpiritBarrage) && Player.PrimaryResource > 100)
+                return new TrinityPower(SNOPower.Witchdoctor_SpiritBarrage, 12f, CurrentTarget.ACDGuid);
             return CombatBase.DefaultPower;
         }
 

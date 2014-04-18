@@ -1,6 +1,14 @@
 ﻿
 # Trinity
 
+### Changelog 1.8.22
+
+* Removed WorldHeightCache and Raycast Cache to save memory
+
+* Added lots of Try/Catch to UI loading stuff
+
+* Added "Started with Bounty" check to TrinityExploreDungeon 
+
 ### Changelog 1.8.20
 
 * Changed description of "Trash All Rares" to "Sell/Salvage all rares" - hopefully this makes more sense now

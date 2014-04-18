@@ -136,12 +136,14 @@ namespace Trinity
                         return false;
                     }
 
-                    if (itemType == GItemType.LootRunKey)
+                    // Rift Keystone Fragments == LootRunkey
+                    if (itemType == GItemType.LootRunKey && Settings.Loot.Pickup.LootRunKey)
                     {
                         return true;
                     }
 
-                    if (itemType == GItemType.HoradricRelic)
+                    // Blood Shards == HoradricRelic
+                    if (itemType == GItemType.HoradricRelic && Settings.Loot.Pickup.BloodShards)
                     {
                         return true;
                     }
@@ -681,7 +683,7 @@ namespace Trinity
                 if (!Settings.Advanced.OutputReports)
                     return;
 
-                if (cachedStaticWorldId <= 0 || Player.ActorClass == ActorClass.Invalid)
+                if (CurrentWorldId <= 0 || Player.ActorClass == ActorClass.Invalid)
                     return;
 
                 if (!ZetaDia.IsInGame)
@@ -715,13 +717,14 @@ namespace Trinity
                     {
                         if (!(TotalXP == 0 && LastXP == 0 && NextLevelXP == 0))
                         {
-                            if (LastXP > Trinity.Player.ParagonCurrentExperience)
+                            // We have leveled up
+                            if (NextLevelXP < Trinity.Player.ParagonExperienceNextLevel)
                             {
-                                TotalXP += NextLevelXP;
+                                TotalXP += NextLevelXP + Trinity.Player.ParagonCurrentExperience;
                             }
-                            else
+                            else // We have not leveled up
                             {
-                                TotalXP += Trinity.Player.ParagonCurrentExperience - LastXP;
+                                TotalXP += NextLevelXP - Trinity.Player.ParagonExperienceNextLevel;
                             }
                         }
                         LastXP = Trinity.Player.ParagonCurrentExperience;

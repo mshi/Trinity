@@ -13,6 +13,7 @@ using Zeta.Common;
 using Zeta.Common.Plugins;
 using Zeta.Game;
 using Zeta.Game.Internals.Actors;
+using Zeta.Game.Internals.SNO;
 using Zeta.TreeSharp;
 using Action = Zeta.TreeSharp.Action;
 using Decorator = Zeta.TreeSharp.Decorator;
@@ -185,6 +186,13 @@ namespace Trinity
                         IsWaitingAfterPower = false;
                     }
 
+                    if (CurrentTarget != null && CurrentTarget.Type == GObjectType.JumpLinkPortal &&
+                        CacheData.SameWorldPortals.Any(p => DateTime.UtcNow.Subtract(p.LastInteract).TotalSeconds < 5) && !NavHelper.CanRayCast(CurrentTarget.Position))
+                    {
+                        CurrentTarget = null;
+                        runStatus = HandlerRunStatus.TreeRunning;
+                    }
+
                     //check if we are returning to the tree
                     if (runStatus != HandlerRunStatus.NotFinished)
                         return GetTreeSharpRunStatus(runStatus);
@@ -263,7 +271,6 @@ namespace Trinity
                         Logger.Log(TrinityLogLevel.Info, LogCategory.Behavior, "CurrentTarget set as null in refresh! Error 2");
                         runStatus = HandlerRunStatus.TreeFailure;
                     }
-
 
                     //check if we are returning to the tree
                     if (runStatus != HandlerRunStatus.NotFinished)
@@ -365,7 +372,16 @@ namespace Trinity
                         if (TargetCurrentDistance < 0f)
                             TargetCurrentDistance = 0f;
 
-                        if (TargetCurrentDistance <= 20f)
+                        // Always raycast these bad boys
+                        if (CurrentTarget.Type == GObjectType.JumpLinkPortal)
+                        {
+                            CurrentTargetIsInLoS = NavHelper.CanRayCast(Player.Position, vCurrentDestination);
+                        }
+                        else if (DataDictionary.AlwaysRaycastWorlds.Contains(Player.WorldID))
+                        {
+                            CurrentTargetIsInLoS = NavHelper.CanRayCast(Player.Position, vCurrentDestination);
+                        }
+                        else if (TargetCurrentDistance <= 20f)
                         {
                             CurrentTargetIsInLoS = true;
                         }
@@ -381,8 +397,18 @@ namespace Trinity
 
                     using (new PerformanceLogger("HandleTarget.InRange"))
                     {
+                        bool stuckOnTarget =
+                            ((CurrentTarget.Type == GObjectType.Barricade ||
+                             CurrentTarget.Type == GObjectType.Interactable ||
+                             CurrentTarget.Type == GObjectType.CursedChest ||
+                             CurrentTarget.Type == GObjectType.CursedShrine ||
+                             CurrentTarget.Type == GObjectType.Destructible) &&
+                             !ZetaDia.Me.Movement.IsMoving && DateTime.UtcNow.Subtract(PlayerMover.TimeLastUsedPlayerMover).TotalMilliseconds < 500);
+
+                        bool npcInRange = CurrentTarget.IsQuestGiver && CurrentTarget.RadiusDistance <= 3f;
+
                         // Interact/use power on target if already in range
-                        if (TargetRangeRequired <= 0f || TargetCurrentDistance <= TargetRangeRequired && CurrentTargetIsInLoS)
+                        if (TargetRangeRequired <= 0f || (TargetCurrentDistance <= TargetRangeRequired && CurrentTargetIsInLoS) || stuckOnTarget || npcInRange)
                         {
                             // If avoidance, instantly skip
                             if (CurrentTarget.Type == GObjectType.Avoidance)
@@ -393,7 +419,7 @@ namespace Trinity
                                 runStatus = HandlerRunStatus.TreeRunning;
                             }
 
-                            if (CurrentTarget.Type == GObjectType.Interactable && PlayerMover.MovementSpeed > 0)
+                            if (CurrentTarget.Type == GObjectType.Interactable && ZetaDia.Me.Movement.IsMoving)
                             {
                                 runStatus = HandlerRunStatus.TreeRunning;
                             }
@@ -492,26 +518,39 @@ namespace Trinity
                                             return GetTreeSharpRunStatus(runStatus);
                                         break;
                                     }
-                                // * Shrine & Container - need to get within 8 feet and interact
+
                                 case GObjectType.Door:
                                 case GObjectType.HealthWell:
                                 case GObjectType.Shrine:
                                 case GObjectType.Container:
                                 case GObjectType.Interactable:
+                                case GObjectType.JumpLinkPortal:
+                                case GObjectType.CursedChest:
+                                case GObjectType.CursedShrine:
                                     {
                                         ForceTargetUpdate = true;
-                                        if (PlayerMover.GetMovementSpeed() == 0)
+                                        if (CurrentTarget.RadiusDistance <= 5f && ZetaDia.Me.Movement.IsMoving)
+                                        {
+                                            Logger.Log(LogCategory.Behavior, "Trying to stop");
+                                            Navigator.MoveTo(Player.Position, "Player Position", false);
+                                        }
+                                        else if (!ZetaDia.Me.Movement.IsMoving || DateTime.UtcNow.Subtract(PlayerMover.TimeLastUsedPlayerMover).TotalSeconds > 5)
                                         {
                                             if (SpellHistory.TimeSinceUse(SNOPower.Axe_Operate_Gizmo) < TimeSpan.FromMilliseconds(500))
                                             {
                                                 return GetTreeSharpRunStatus(HandlerRunStatus.TreeRunning);
                                             }
 
-                                            if (DataDictionary.SameWorldPortals.Contains(CurrentTarget.ActorSNO))
+                                            Logger.LogDebug(LogCategory.Behavior, "Using {0} on {1} Distance {2} Radius {3}",
+                                                SNOPower.Axe_Operate_Gizmo, CurrentTarget.InternalName, CurrentTarget.CentreDistance, CurrentTarget.Radius);
+
+                                            if (CurrentTarget.Type == GObjectType.JumpLinkPortal)
                                             {
                                                 Logger.LogDebug("Adding {0} {1} to SameWorldPortals", CurrentTarget.InternalName, CurrentTarget.ActorSNO);
                                                 CacheData.SameWorldPortals.Add(new Cache.SameWorldPortal() { ActorSNO = CurrentTarget.ActorSNO, RActorGUID = CurrentTarget.RActorGuid });
+
                                             }
+                                            bool interactSuccessful = false;
                                             if (CurrentTarget.Type == GObjectType.Shrine)
                                             {
                                                 if (!HandleShrine())
@@ -525,9 +564,12 @@ namespace Trinity
                                                                 "Using {0} on {1} Distance {2} Radius {3}",
                                                                 SNOPower.Axe_Operate_Gizmo, CurrentTarget.InternalName,
                                                                 CurrentTarget.CentreDistance, CurrentTarget.Radius);
-                                                ZetaDia.Me.UsePower(SNOPower.Axe_Operate_Gizmo, Vector3.Zero, 0,
-                                                                    CurrentTarget.ACDGuid);
+                                                if (CurrentTarget.ActorType == ActorType.Monster)
+                                                    interactSuccessful = ZetaDia.Me.UsePower(SNOPower.Axe_Operate_NPC, Vector3.Zero, CurrentWorldDynamicId, CurrentTarget.ACDGuid);
+                                                else
+                                                    interactSuccessful = ZetaDia.Me.UsePower(SNOPower.Axe_Operate_Gizmo, Vector3.Zero, 0, CurrentTarget.ACDGuid);
                                             }
+
                                             SpellHistory.RecordSpell(new TrinityPower()
                                                 {
                                                     SNOPower = SNOPower.Axe_Operate_Gizmo,
@@ -535,6 +577,16 @@ namespace Trinity
                                                     MinimumRange = TargetRangeRequired,
                                                     TargetPosition = CurrentTarget.Position,
                                                 });
+
+                                            if (CurrentTarget.Type == GObjectType.JumpLinkPortal && interactSuccessful)
+                                                hashRGUIDBlacklist3.Add(CurrentTarget.RActorGuid);
+
+
+                                            //else if (interactSuccessful)
+                                            //{
+                                            //    IgnoreRactorGUID = CurrentTarget.RActorGuid;
+                                            //    IgnoreTargetForLoops = 5;
+                                            //}
 
                                             // Count how many times we've tried interacting
                                             if (!CacheData.InteractAttempts.TryGetValue(CurrentTarget.RActorGuid, out iInteractAttempts))
@@ -554,7 +606,7 @@ namespace Trinity
                                                 hashRGUIDBlacklist15.Add(CurrentTarget.RActorGuid);
                                             }
                                         }
-
+                                        
                                         Logger.Log(LogCategory.Behavior, "Waiting to stop moving before interaction");
 
                                         runStatus = HandlerRunStatus.TreeRunning;
@@ -621,6 +673,7 @@ namespace Trinity
                                                 if (CombatBase.CurrentPower.SNOPower == SNOPower.Monk_TempestRush)
                                                     LastTempestRushLocation = CurrentTarget.Position;
                                             }
+
                                             // Count how many times we've tried interacting
                                             if (!CacheData.InteractAttempts.TryGetValue(CurrentTarget.RActorGuid, out iInteractAttempts))
                                             {
@@ -962,7 +1015,7 @@ namespace Trinity
                     CacheData.InteractAttempts.TryGetValue(CurrentTarget.RActorGuid, out interactAttempts);
 
                     if ((CurrentTarget.Type == GObjectType.Door || CurrentTarget.Type == GObjectType.Interactable || CurrentTarget.Type == GObjectType.Container) &&
-                        interactAttempts > 45 && DateTime.UtcNow.Subtract(PlayerMover.LastRecordedAnyStuck).TotalSeconds > 15)
+                        interactAttempts < 45 && DateTime.UtcNow.Subtract(PlayerMover.LastRecordedAnyStuck).TotalSeconds > 15)
                     {
                         addTargetToBlacklist = false;
                     }
@@ -1431,9 +1484,10 @@ namespace Trinity
                     // * Gold - need to get within pickup radius only
                     case GObjectType.Gold:
                         {
-                            TargetRangeRequired = Player.GoldPickupRadius - 2f;
-                            if (TargetRangeRequired < 2f)
-                                TargetRangeRequired = 2f;
+                            TargetRangeRequired = 1f; //Player.GoldPickupRadius - 2f;
+                            vCurrentDestination = MathEx.CalculatePointFrom(Player.Position, CurrentTarget.Position, -2f);
+                            //if (TargetRangeRequired < 2f)
+                            //    TargetRangeRequired = 2f;
                             break;
                         }
                     // * Globes - need to get within pickup radius only
@@ -1479,12 +1533,14 @@ namespace Trinity
                         }
                     case GObjectType.Interactable:
                         {
+                            if (CurrentTarget.IsQuestGiver)
+                            {
+                                vCurrentDestination = MathEx.CalculatePointFrom(CurrentTarget.Position, Player.Position, CurrentTarget.Radius);
+                            }
+
                             // Treat the distance as closer based on the radius of the object
                             TargetDistanceReduction = CurrentTarget.Radius;
                             TargetRangeRequired = CurrentTarget.Radius;
-
-                            if (ForceCloseRangeTarget)
-                                TargetRangeRequired -= 2f;
 
                             // Check if it's in our interactable range dictionary or not
                             float range;
@@ -1493,12 +1549,8 @@ namespace Trinity
                             {
                                 TargetRangeRequired = range;
                             }
-                            int attempts = 0;
-                            if (CacheData.InteractAttempts.TryGetValue(CurrentTarget.ActorSNO, out attempts))
-                                TargetRangeRequired -= attempts;
-
                             if (TargetRangeRequired <= 0)
-                                TargetRangeRequired = 1f;
+                                TargetRangeRequired = CurrentTarget.Radius;
 
                             break;
                         }
@@ -1522,8 +1574,8 @@ namespace Trinity
                     case GObjectType.Barricade:
                         {
                             // Pick a range to try to reach + (tmp_fThisRadius * 0.70);
-                            TargetRangeRequired = CombatBase.CurrentPower.SNOPower == SNOPower.None ? 9f : CombatBase.CurrentPower.MinimumRange;
-                            TargetDistanceReduction = CurrentTarget.Radius;
+                            TargetRangeRequired = 1f; // CombatBase.CurrentPower.SNOPower == SNOPower.None ? 9f : CombatBase.CurrentPower.MinimumRange;
+                            TargetDistanceReduction = 0f; // CurrentTarget.Radius;
 
                             if (ForceCloseRangeTarget)
                                 TargetDistanceReduction += TimesBlockedMoving * 3f;

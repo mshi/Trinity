@@ -40,7 +40,10 @@ namespace Trinity.Combat.Abilities
             get
             {
                 // if disabled in the profile, or disabled through api
-                if (!CombatTargeting.Instance.AllowedToKillMonsters || !isCombatAllowed)
+                if (!CombatTargeting.Instance.AllowedToKillMonsters)
+                    return false;
+
+                if (!isCombatAllowed)
                     return false;
                 return true;
             }
@@ -382,7 +385,7 @@ namespace Trinity.Combat.Abilities
             if (!hasPower)
                 return false;
 
-            // Skip this 
+            // Skip this or Barb, Crusader, WD
             if (Player.ActorClass == ActorClass.Wizard || Player.ActorClass == ActorClass.DemonHunter || Player.ActorClass == ActorClass.Monk)
             {
                 bool timer = flags.HasFlag(CanCastFlags.NoTimer) || SNOPowerUseTimer(power);

@@ -88,7 +88,7 @@ namespace Trinity
         /// <param name="vDestination"></param>
         /// <param name="ZDiff"></param>
         /// <returns></returns>
-        internal static bool CanRayCast(Vector3 vStartLocation, Vector3 vDestination, float ZDiff = 4f)
+        internal static bool CanRayCast(Vector3 vStartLocation, Vector3 vDestination, float ZDiff = 2f)
         {
             // Navigator.Raycast is REVERSE Of ZetaDia.Physics.Raycast
             // Navigator.Raycast returns True if it "hits" an edge
@@ -96,29 +96,7 @@ namespace Trinity
             // So ZetaDia.Physics.Raycast() == !Navigator.Raycast()
             // We're using Navigator.Raycast now because it's "faster" (per Nesox)
 
-            const int precision = 1;
-
-            vStartLocation = new Vector3()
-            {
-                X = (float)Math.Round((decimal)vStartLocation.X, precision),
-                Y = (float)Math.Round((decimal)vStartLocation.Y, precision),
-                Z = (float)Math.Round((decimal)vStartLocation.Z, precision),
-            };
-
-            vDestination = new Vector3()
-            {
-                X = (float)Math.Round((decimal)vDestination.X, precision),
-                Y = (float)Math.Round((decimal)vDestination.Y, precision),
-                Z = (float)Math.Round((decimal)vDestination.Z, precision),
-            };
-
-            bool rc = false;
-            Tuple<Vector3, Vector3> cacheTuple = new Tuple<Vector3, Vector3>(vStartLocation, vDestination);
-
-            if (!CacheData.RaycastCache.TryGetValue(cacheTuple, out rc))
-            {
-                rc = Navigator.Raycast(new Vector3(vStartLocation.X, vStartLocation.Y, vStartLocation.Z + ZDiff), new Vector3(vDestination.X, vDestination.Y, vDestination.Z + ZDiff));
-            }
+            bool rc = Navigator.Raycast(new Vector3(vStartLocation.X, vStartLocation.Y, vStartLocation.Z + ZDiff), new Vector3(vDestination.X, vDestination.Y, vDestination.Z + ZDiff));
 
             if (rc)
                 return false;
@@ -250,19 +228,13 @@ namespace Trinity
                     Vector3 xyz = Vector3.Zero;
                     Point p_xy = Point.Empty;
 
-                    Tuple<int, Vector2> cacheTuple = new Tuple<int, Vector2>(worldId, xy);
-
-                    if (!CacheData.WorldHeightCache.TryGetValue(cacheTuple, out xyz))
+                    if (Trinity.Settings.Combat.Misc.UseNavMeshTargeting)
                     {
-                        if (Trinity.Settings.Combat.Misc.UseNavMeshTargeting)
-                        {
-                            xyz = new Vector3(xy.X, xy.Y, MainGridProvider.GetHeight(xy));
-                        }
-                        else
-                        {
-                            xyz = new Vector3(xy.X, xy.Y, origin.Z + 4);
-                        }
-                        CacheData.WorldHeightCache.Add(cacheTuple, xyz);
+                        xyz = new Vector3(xy.X, xy.Y, MainGridProvider.GetHeight(xy));
+                    }
+                    else
+                    {
+                        xyz = new Vector3(xy.X, xy.Y, origin.Z + 4);
                     }
 
                     GridPoint gridPoint = new GridPoint(xyz, 0, origin.Distance(xyz));
@@ -271,11 +243,8 @@ namespace Trinity
                     {
                         bool canStand = false;
 
-                        if (!CacheData.CanStandAtCache.TryGetValue(cacheTuple, out canStand))
-                        {
-                            p_xy = MainGridProvider.WorldToGrid(xy);
-                            canStand = MainGridProvider.CanStandAt(p_xy);
-                        }
+                        p_xy = MainGridProvider.WorldToGrid(xy);
+                        canStand = MainGridProvider.CanStandAt(p_xy);
 
                         if (!canStand)
                         {
