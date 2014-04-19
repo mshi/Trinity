@@ -19,7 +19,7 @@ namespace Trinity
         {
             get
             {
-                return new Version(1, 8, 24, 7);
+                return new Version(1, 8, 25, 7);
             }
         }
 
@@ -295,12 +295,16 @@ namespace Trinity
                     windowTitle += " - " + profileName;
                 }
 
+                Logger.LogDebug("Setting Window Title");
                 BeginInvoke(new Action(() =>
                 {
                     try
                     {
                         if (mainWindow != null && windowTitle != null)
+                        {
                             mainWindow.Title = windowTitle;
+                            Logger.LogDebug("Window Title Set");
+                        }
                     }
                     catch (Exception ex)
                     {

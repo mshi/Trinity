@@ -258,7 +258,23 @@ namespace Trinity
                         EventStartTime = DateTime.MinValue;
                     }
 
-                    if (CurrentTarget == null && Player.InActiveEvent && DateTime.UtcNow.Subtract(EventStartTime).TotalSeconds < 30)
+                    // Reset Event time while we have targts
+                    if (CurrentTarget != null)
+                    {
+                        EventStartTime = DateTime.UtcNow;
+                    }
+
+                    var activeEvent = ZetaDia.ActInfo.ActiveQuests.FirstOrDefault(q => DataDictionary.EventQuests.Contains(q.QuestSNO));
+
+                    const int waitTimeoutSeconds = 90;
+                    if (DateTime.UtcNow.Subtract(EventStartTime).TotalSeconds > waitTimeoutSeconds && activeEvent != null)
+                    {
+                        CacheData.BlacklistedEvents.Add(activeEvent.QuestSNO);
+                    }
+
+                    if (CurrentTarget == null && Player.InActiveEvent &&
+                        DateTime.UtcNow.Subtract(EventStartTime).TotalSeconds < waitTimeoutSeconds &&
+                        activeEvent != null && !CacheData.BlacklistedEvents.Contains(activeEvent.QuestSNO))
                     {
                         if (EventStartPosition == Vector3.Zero)
                         {
@@ -275,9 +291,11 @@ namespace Trinity
                             RadiusDistance = 2f,
                             InternalName = "WaitForEvent"
                         };
-                        Logger.Log("Waiting for Event");
+                        Logger.Log("Waiting for Event {0} - Time Remaining: {1:0} seconds",
+                            ZetaDia.ActInfo.ActiveQuests.FirstOrDefault(q => DataDictionary.EventQuests.Contains(q.QuestSNO)).Quest,
+                            waitTimeoutSeconds - DateTime.UtcNow.Subtract(EventStartTime).TotalSeconds);
                     }
-                    
+
                     // Still no target, let's see if we should backtrack or wait for wrath to come off cooldown...
                     if (CurrentTarget == null)
                     {
@@ -438,14 +456,14 @@ namespace Trinity
                                     CurrentCacheObject.GizmoType != GizmoType.None ? CurrentCacheObject.GizmoType.ToString() : "",
                                     c_ObjectType,
                                     c_InternalName,
-                                    c_ActorSNO,
+                                    CurrentCacheObject.ActorSNO,
                                     (c_unit_IsBoss ? " IsBoss" : ""),
                                     (c_CurrentAnimation != SNOAnim.Invalid ? " Anim: " + c_CurrentAnimation : ""),
                                     c_CentreDistance,
                                     c_RadiusDistance,
                                     c_ZDiff,
                                     c_Radius,
-                                    c_RActorGuid,
+                                    CurrentCacheObject.RActorGuid,
                                     extraData);
                         }
                     }
@@ -459,11 +477,6 @@ namespace Trinity
                         Logger.Log(TrinityLogLevel.Error, LogCategory.UserInformation, "Error while refreshing DiaObject ActorSNO: {0} Name: {1} Type: {2} Distance: {3:0} {4}",
                                 currentObject.ActorSNO, currentObject.Name, currentObject.ActorType, currentObject.Distance, gizmoType);
                         Logger.Log(TrinityLogLevel.Error, LogCategory.UserInformation, "{0}", ex);
-
-                        if (c_ACDGUID != -1 && CacheData.ObjectType.ContainsKey(c_RActorGuid))
-                        {
-                            CacheData.ObjectType.Remove(c_RActorGuid);
-                        }
 
                     }
                 }
@@ -589,7 +602,7 @@ namespace Trinity
                 {
                     ForceCloseRangeTarget = false;
                 }
-                
+
                 //AnyElitesPresent = false;
                 AnyMobsInRange = false;
 
@@ -632,27 +645,7 @@ namespace Trinity
 
         private static void ClearCachesOnGameChange(object sender, EventArgs e)
         {
-            CacheData.Position = new Dictionary<int, Vector3>();
-            CacheData.ObjectType = new Dictionary<int, GObjectType>();
-            CacheData.ActorSNO = new Dictionary<int, int>();
-            CacheData.AcdGuid = new Dictionary<int, int>();
-            CacheData.CurrentUnitHealth = new Dictionary<int, double>();
-            CacheData.LastCheckedUnitHealth = new Dictionary<int, int>();
-            CacheData.UnitMonsterAffix = new Dictionary<int, MonsterAffixes>();
-            CacheData.UnitMaxHealth = new Dictionary<int, double>();
-            CacheData.MonsterTypes = new Dictionary<int, MonsterType>();
-            CacheData.MonsterSizes = new Dictionary<int, MonsterSize>();
-            CacheData.UnitIsBurrowed = new Dictionary<int, bool>();
-            CacheData.SummonedByACDId = new Dictionary<int, int>();
-            CacheData.Name = new Dictionary<int, string>();
-            CacheData.GoldStack = new Dictionary<int, int>();
-            CacheData.GameBalanceID = new Dictionary<int, int>();
-            CacheData.DynamicID = new Dictionary<int, int>();
-            CacheData.ItemQuality = new Dictionary<int, ItemQuality>();
-            CacheData.PickupItem = new Dictionary<int, bool>();
-            CacheData.HasBeenRayCasted = new Dictionary<int, bool>();
-            CacheData.HasBeenNavigable = new Dictionary<int, bool>();
-            CacheData.HasBeenInLoS = new Dictionary<int, bool>();
+            CacheData.FullClear();
         }
 
         private static HashSet<string> ignoreNames = new HashSet<string>
@@ -677,7 +670,7 @@ namespace Trinity
 
         private static void RefreshDoBackTrack()
         {
-            
+
             // See if we should wait for [playersetting] milliseconds for possible loot drops before continuing run
             if (CurrentTarget == null && (DateTime.UtcNow.Subtract(lastHadUnitInSights).TotalMilliseconds <= Settings.Combat.Misc.DelayAfterKill ||
                 DateTime.UtcNow.Subtract(lastHadEliteUnitInSights).TotalMilliseconds <= Settings.Combat.Misc.DelayAfterKill ||
@@ -695,7 +688,7 @@ namespace Trinity
                                     };
                 Logger.Log(TrinityLogLevel.Debug, LogCategory.Behavior, "Waiting for loot to drop, delay: {0}ms", Settings.Combat.Misc.DelayAfterKill);
             }
-           
+
             // End of backtracking check
             // Finally, a special check for waiting for wrath of the berserker cooldown before engaging Azmodan
             if (CurrentTarget == null && Hotbar.Contains(SNOPower.Barbarian_WrathOfTheBerserker) && Settings.Combat.Barbarian.WaitWOTB && !SNOPowerUseTimer(SNOPower.Barbarian_WrathOfTheBerserker) &&

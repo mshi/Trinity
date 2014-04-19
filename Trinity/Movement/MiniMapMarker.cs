@@ -20,6 +20,11 @@ namespace Trinity
     {
         private const int WAYPOINT_MARKER = -1751517829;
 
+        internal static HashSet<int> TownHubMarkers = new HashSet<int>()
+        {
+            1877684886 // A5 Hub
+        };
+
         public int MarkerNameHash { get; set; }
         public Vector3 Position { get; set; }
         public bool Visited { get; set; }
@@ -110,6 +115,25 @@ namespace Trinity
             }
         }
 
+        private static Composite CreateAddRiftMarkers()
+        {
+            return
+            new DecoratorContinue(ret => ZetaDia.CurrentAct == Act.OpenWorld && DataDictionary.RiftWorldIds.Contains(Trinity.Player.WorldID),
+                new Action(ret =>
+                    {
+                        foreach (var nameHash in DataDictionary.RiftPortalHashes)
+                        {
+                            AddMarkersToList(nameHash);
+                        }
+
+                        foreach (var marker in ZetaDia.Minimap.Markers.CurrentWorldMarkers.Where(m => (m.IsPortalExit || m.IsPointOfInterest) && !TownHubMarkers.Contains(m.NameHash)))
+                        {
+                            AddMarkersToList(marker.NameHash);
+                        }
+                    })
+            );
+        }
+
         internal static void AddMarkersToList(List<TrinityExploreDungeon.Objective> objectives)
         {
             if (objectives == null)
@@ -135,16 +159,23 @@ namespace Trinity
         internal static Composite DetectMiniMapMarkers(int includeMarker = 0)
         {
             return
-            new DecoratorContinue(ret => ZetaDia.Minimap.Markers.CurrentWorldMarkers.Any(m => (m.NameHash == 0 || m.NameHash == includeMarker) && !KnownMarkers.Any(m2 => m2.Position != m.Position && m2.MarkerNameHash == m.NameHash)),
-                new Sequence(
+            new Sequence(
+                CreateAddRiftMarkers(),
+                new DecoratorContinue(ret => ZetaDia.Minimap.Markers.CurrentWorldMarkers
+                    .Any(m => (m.NameHash == 0 || m.NameHash == includeMarker) && !KnownMarkers.Any(m2 => m2.Position != m.Position && m2.MarkerNameHash == m.NameHash)),
+                    new Sequence(
                     new Action(ret => MiniMapMarker.AddMarkersToList(includeMarker))
+                    )
                 )
             );
         }
 
         internal static Composite DetectMiniMapMarkers(List<TrinityExploreDungeon.Objective> objectives)
         {
-            return new Action(ret => MiniMapMarker.AddMarkersToList(objectives));
+            return
+            new Sequence(
+                new Action(ret => MiniMapMarker.AddMarkersToList(objectives))
+            );
         }
 
         internal static Composite VisitMiniMapMarkers(Vector3 near, float markerDistance)

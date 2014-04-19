@@ -27,6 +27,22 @@ namespace Trinity
             288806,
         };
 
+        /// <summary>
+        /// Contains all the Exit Name Hashes in Rifts
+        /// </summary>
+        public static HashSet<int> RiftPortalHashes { get { return DataDictionary.riftPortalHashes; } }
+        private static readonly HashSet<int> riftPortalHashes = new HashSet<int>()
+		{
+			1938876095,
+			1938876096,
+			1938876097,
+			1938876098,
+			1938876099,
+			1938876100,
+			1938876101,
+			1938876102,
+		};
+
         public static HashSet<int> BountyTurnInQuests { get { return DataDictionary.bountyTurnInQuests; } }
         private static readonly HashSet<int> bountyTurnInQuests = new HashSet<int>()
         {
@@ -357,8 +373,8 @@ namespace Trinity
         public static Dictionary<int, TimeSpan> AvoidanceSpawnerDuration { get { return avoidanceSpawnerDuration; } }
         private static readonly Dictionary<int, TimeSpan> avoidanceSpawnerDuration = new Dictionary<int, TimeSpan>
         {
-            {5482, TimeSpan.FromSeconds(10)},   // Poison Tree
-            {6578, TimeSpan.FromSeconds(10)},   // Poison Tree
+            {5482, TimeSpan.FromSeconds(15)},   // Poison Tree
+            {6578, TimeSpan.FromSeconds(15)},   // Poison Tree
             {316389, TimeSpan.FromSeconds(6)}, // PoisonEnchanted 
             {340319, TimeSpan.FromSeconds(6)}, // PoisonEnchanted 
             {4803, TimeSpan.FromSeconds(6)}, // Molten Core
@@ -584,7 +600,12 @@ namespace Trinity
 
         public static HashSet<int> DemonHunterPetIds { get { return demonHunterPetIds; } }
         private static readonly HashSet<int> demonHunterPetIds = new HashSet<int> { 
-            178664, 173827, 133741, 159144, 181748, 159098 
+            178664, 
+            173827, 
+            133741, 
+            159144, 
+            181748, 
+            159098 
         };
 
         /// <summary>
@@ -593,7 +614,7 @@ namespace Trinity
         /// </summary>
         public static HashSet<int> ForceToItemOverrideIds { get { return forceToItemOverrideIds; } }
         private static readonly HashSet<int> forceToItemOverrideIds = new HashSet<int> {
-            166943, // infernal key
+            166943, // DemonTrebuchetKey, infernal key
         };
 
         /// <summary>
@@ -601,7 +622,11 @@ namespace Trinity
         /// </summary>
         public static HashSet<int> InteractWhiteListIds { get { return interactWhiteListIds; } }
         private static readonly HashSet<int> interactWhiteListIds = new HashSet<int> {
-            56686, 211999, 52685, 54882, 180575, 105478, 
+            56686, // a3dun_Keep_Bridge_Switch 
+            211999, // a3dun_Keep_Bridge_Switch_B 
+            52685, // a3dun_Keep_Bridge
+            54882, // a3dun_Keep_Door_Wooden_A
+            105478, // a1dun_Leor_Spike_Spawner_Switch
             102927, // A1 Cursed Hold Prisoners
             5747, // A1 Cathedral Switch
             365097, // Cursed Chest - Damp Cellar
@@ -683,6 +708,8 @@ namespace Trinity
             55325, // a3dun_Keep_Door_Destructable
 
             225252, // Shamanic Ward - Revenge of Gharbad bounty
+
+            331397, // x1_westm_Graveyard_Floor_Sarcophagus_Undead_Husband_Event
         };
 
         /// <summary>
@@ -749,6 +776,15 @@ namespace Trinity
             173325,     // Anvil of Fury
 
             301177, // A5 Timeless Prison Switch
+
+            // Kevin Spacey was here
+            193023, //LootType3_GraveGuard_C_Corpse_03
+			156682, //Adventurer_A_Corpse_01_WarrivEvent
+			5758, //trDun_Cath_FloorSpawner_01
+			5724, //trDun_Cath_BookcaseShelves_A
+			85790, //Cath_Lecturn_ LachdanansScroll
+			227305, //Lore_Inarius_Corrupt
+			137125, //FesteringWoods_WarriorsRest_Lore
         };
 
         /// <summary>
@@ -785,6 +821,7 @@ namespace Trinity
             218951,245838,
             // rrrix act 1
             108882, 245919, 5944, 165475, 199998, 168875, 105323, 85690, 105321, 108266, 89578,
+            175181, // trDun_Crypt_Skeleton_King_Throne_Parts 
             // rrrix act 2
             213907, 92519, 61544, 105681, 113983, 114527, 114642, 139933, 144405, 156890, 164057, 164195, 180254, 180802, 180809, 181173, 181174, 181177, 181181,
             181182, 181185, 181290, 181292, 181306, 181309, 181313, 181326, 181563, 181857, 181858, 187265, 191433, 191462, 191641, 192880, 192881, 196413, 196435,

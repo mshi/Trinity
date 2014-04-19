@@ -273,7 +273,7 @@ namespace Trinity
 
                                         // Give extra weight to ranged enemies
                                         if ((Player.ActorClass == ActorClass.Barbarian || Player.ActorClass == ActorClass.Monk) &&
-                                            (cacheObject.MonsterSize == MonsterSize.Ranged || DataDictionary.RangedMonsterIds.Contains(c_ActorSNO)))
+                                            (cacheObject.MonsterSize == MonsterSize.Ranged || DataDictionary.RangedMonsterIds.Contains(CurrentCacheObject.ActorSNO)))
                                         {
                                             cacheObject.Weight += 1100d;
                                             cacheObject.ForceLeapAgainst = true;
@@ -841,7 +841,7 @@ namespace Trinity
                             }
                         case GObjectType.JumpLinkPortal:
                             {
-                                if (cacheObject.CentreDistance < 15)
+                                if (cacheObject.CentreDistance < 45)
                                     cacheObject.Weight = 25;
 
                                 break;

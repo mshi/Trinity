@@ -144,9 +144,9 @@ namespace Trinity
                         runStatus = HandlerRunStatus.TreeFailure;
                         return GetTreeSharpRunStatus(runStatus);
                     }
-                    else if (GoldInactivity.GoldInactive())
+                    else if (GoldInactivity.Instance.GoldInactive())
                     {
-                        BotMain.PauseWhile(GoldInactivity.GoldInactiveLeaveGame);
+                        BotMain.PauseWhile(GoldInactivity.Instance.GoldInactiveLeaveGame);
                         Logger.Log(TrinityLogLevel.Error, LogCategory.UserInformation, "Gold Inactivity Tripped", true);
                         runStatus = HandlerRunStatus.TreeFailure;
                         return GetTreeSharpRunStatus(runStatus);
@@ -368,7 +368,7 @@ namespace Trinity
 
                     using (new PerformanceLogger("HandleTarget.LoSCheck"))
                     {
-                        TargetCurrentDistance = Player.Position.Distance2D(vCurrentDestination) - TargetDistanceReduction;
+                        TargetCurrentDistance = CurrentTarget.RadiusDistance;
                         if (TargetCurrentDistance < 0f)
                             TargetCurrentDistance = 0f;
 
@@ -377,7 +377,7 @@ namespace Trinity
                         {
                             CurrentTargetIsInLoS = NavHelper.CanRayCast(Player.Position, vCurrentDestination);
                         }
-                        else if (DataDictionary.AlwaysRaycastWorlds.Contains(Player.WorldID))
+                        else if (DataDictionary.AlwaysRaycastWorlds.Contains(Player.WorldID) && CurrentTarget.CentreDistance > CurrentTarget.Radius + 2f)
                         {
                             CurrentTargetIsInLoS = NavHelper.CanRayCast(Player.Position, vCurrentDestination);
                         }
@@ -410,7 +410,7 @@ namespace Trinity
                         bool npcInRange = CurrentTarget.IsQuestGiver && CurrentTarget.RadiusDistance <= 3f;
 
                         // Interact/use power on target if already in range
-                        if (TargetRangeRequired <= 0f || (TargetCurrentDistance <= TargetRangeRequired && CurrentTargetIsInLoS) || stuckOnTarget || npcInRange)
+                        if (TargetRangeRequired <= 1f || (TargetCurrentDistance <= TargetRangeRequired && CurrentTargetIsInLoS) || stuckOnTarget || npcInRange)
                         {
                             // If avoidance, instantly skip
                             if (CurrentTarget.Type == GObjectType.Avoidance)
@@ -532,7 +532,7 @@ namespace Trinity
                                     {
                                         ForceTargetUpdate = true;
 
-                                        if (CurrentTarget.RadiusDistance <= 5f && isMoving)
+                                        if (isMoving)
                                         {
                                             Logger.LogVerbose(LogCategory.Behavior, "Trying to stop, Speeds:{0:0.00}/{1:0.00}", ZetaDia.Me.Movement.SpeedXY, PlayerMover.GetMovementSpeed());
                                             Navigator.PlayerMover.MoveStop();
@@ -720,6 +720,11 @@ namespace Trinity
                                     if (runStatus != HandlerRunStatus.NotFinished)
                                         return GetTreeSharpRunStatus(runStatus);
                                     break;
+                                default:
+                                    {
+                                        Logger.LogError("Default handle target in range encountered for {0} Type: {1}", CurrentTarget.InternalName, CurrentTarget.Type);
+                                        break;
+                                    }
                             }
                             runStatus = HandlerRunStatus.TreeRunning;
                             //check if we are returning to the tree
@@ -727,6 +732,8 @@ namespace Trinity
                                 return GetTreeSharpRunStatus(runStatus);
                         }
                     }
+
+
                     using (new PerformanceLogger("HandleTarget.UpdateStatusText"))
                     {
                         // Out-of-range, so move towards the target
@@ -1158,17 +1165,17 @@ namespace Trinity
                             // health calculations
                             double dThisMaxHealth;
                             // Get the max health of this unit, a cached version if available, if not cache it
-                            if (!CacheData.UnitMaxHealth.TryGetValue(c_RActorGuid, out dThisMaxHealth))
+                            if (!CacheData.UnitMaxHealth.TryGetValue(CurrentCacheObject.RActorGuid, out dThisMaxHealth))
                             {
                                 try
                                 {
 
                                     dThisMaxHealth = CurrentTarget.Unit.HitpointsMax;
-                                    CacheData.UnitMaxHealth.Add(c_RActorGuid, CurrentTarget.Unit.HitpointsMax);
+                                    CacheData.UnitMaxHealth.Add(CurrentCacheObject.RActorGuid, CurrentTarget.Unit.HitpointsMax);
                                 }
                                 catch
                                 {
-                                    Logger.Log(TrinityLogLevel.Debug, LogCategory.Behavior, "Safely handled exception getting attribute max health #2 for unit {0} [{1}]", c_InternalName, c_ActorSNO);
+                                    Logger.Log(TrinityLogLevel.Debug, LogCategory.Behavior, "Safely handled exception getting attribute max health #2 for unit {0} [{1}]", c_InternalName, CurrentCacheObject.ActorSNO);
                                     StaleCache = true;
                                 }
                             }
@@ -1427,15 +1434,21 @@ namespace Trinity
                         lastMoveResult = PlayerMover.NavigateTo(vCurrentDestination, destname);
                     }
 
-
                     lastSentMovePower = DateTime.UtcNow;
 
-                    //if (lastMoveResult == MoveResult.ReachedDestination && vCurrentDestination.Distance2D(PlayerStatus.CurrentPosition) > 40f)
-                    //{
-                    //    hashRGUIDBlacklist60.Add(CurrentTarget.RActorGuid);
-                    //    DbHelper.Log(TrinityLogLevel.Normal, LogCategory.Behavior, "Blacklisting {0} {1} {2} dist={3} " + (CurrentTarget.IsElite ? " IsElite" : "") + (CurrentTarget.ItemQuality >= ItemQuality.Legendary ? "IsLegendaryItem" : ""),
-                    //        CurrentTarget.InternalName, CurrentTarget.ActorSNO, CurrentTarget.RActorGuid, CurrentTarget.CentreDistance);
-                    //}
+                    bool inRange = TargetCurrentDistance <= TargetRangeRequired || CurrentTarget.CentreDistance < 10f;
+                    if (lastMoveResult == MoveResult.ReachedDestination && !inRange && CurrentTarget.Type != GObjectType.Item)
+                    {
+                        bool pathFindresult = ((DefaultNavigationProvider)Navigator.NavigationProvider).CanPathWithinDistance(CurrentTarget.Position, CurrentTarget.Radius);
+                        if (!pathFindresult)
+                        {
+                            hashRGUIDBlacklist60.Add(CurrentTarget.RActorGuid);
+                            Logger.Log("Unable to navigate to target! Blacklisting {0} SNO={1} RAGuid={2} dist={3:0} canFullyPath={4} " 
+                                + (CurrentTarget.IsElite ? " IsElite " : "") 
+                                + (CurrentTarget.ItemQuality >= ItemQuality.Legendary ? "IsLegendaryItem " : ""),
+                                CurrentTarget.InternalName, CurrentTarget.ActorSNO, CurrentTarget.RActorGuid, CurrentTarget.CentreDistance, pathFindresult);
+                        }
+                    }
 
                     // Store the current destination for comparison incase of changes next loop
                     vLastMoveToTarget = vCurrentDestination;
@@ -1453,7 +1466,6 @@ namespace Trinity
                 TargetRangeRequired = 1f;
                 TargetCurrentDistance = 0;
                 CurrentTargetIsInLoS = false;
-                TargetDistanceReduction = 0f;
                 // Set current destination to our current target's destination
                 vCurrentDestination = CurrentTarget.Position;
                 float DistanceToDestination = Player.Position.Distance(vCurrentDestination);
@@ -1462,13 +1474,6 @@ namespace Trinity
                     // * Unit, we need to pick an ability to use and get within range
                     case GObjectType.Unit:
                         {
-                            // Treat the distance as closer based on the radius of monsters
-                            TargetDistanceReduction = CurrentTarget.Radius;
-                            if (ForceCloseRangeTarget)
-                                TargetDistanceReduction -= 3f;
-                            if (TargetDistanceReduction <= 0f)
-                                TargetDistanceReduction = 0f;
-
                             // Pick a range to try to reach
                             TargetRangeRequired = CombatBase.CurrentPower.SNOPower == SNOPower.None ? 9f : CombatBase.CurrentPower.MinimumRange;
                             break;
@@ -1515,14 +1520,9 @@ namespace Trinity
                     case GObjectType.Shrine:
                     case GObjectType.Container:
                         {
-                            // Treat the distance as closer based on the radius of the object
-                            TargetDistanceReduction = CurrentTarget.Radius;
                             TargetRangeRequired = 8f;
                             if (ForceCloseRangeTarget)
                                 TargetRangeRequired -= 2f;
-                            // Treat the distance as closer if the X & Y distance are almost point-blank, for objects
-                            if (DistanceToDestination <= 1.5f)
-                                TargetDistanceReduction += 1f;
                             float range;
                             if (DataDictionary.CustomObjectRadius.TryGetValue(CurrentTarget.ActorSNO, out range))
                             {
@@ -1535,10 +1535,9 @@ namespace Trinity
                             if (CurrentTarget.IsQuestGiver)
                             {
                                 vCurrentDestination = MathEx.CalculatePointFrom(CurrentTarget.Position, Player.Position, CurrentTarget.Radius);
+                                TargetRangeRequired = CurrentTarget.Radius + 2f;
                             }
 
-                            // Treat the distance as closer based on the radius of the object
-                            TargetDistanceReduction = CurrentTarget.Radius;
                             TargetRangeRequired = CurrentTarget.Radius;
 
                             // Check if it's in our interactable range dictionary or not
@@ -1557,40 +1556,22 @@ namespace Trinity
                     case GObjectType.Destructible:
                         {
                             // Pick a range to try to reach + (tmp_fThisRadius * 0.70);
-                            TargetRangeRequired = CombatBase.CurrentPower.SNOPower == SNOPower.None ? 9f : CombatBase.CurrentPower.MinimumRange;
-                            TargetDistanceReduction = CurrentTarget.Radius;
-
-                            if (ForceCloseRangeTarget)
-                                TargetDistanceReduction += TimesBlockedMoving * 2.5f;
-
-                            if (TargetDistanceReduction <= 0f)
-                                TargetDistanceReduction = 0f;
-                            // Treat the distance as closer if the X & Y distance are almost point-blank, for destructibles
-                            if (DistanceToDestination <= 1.5f)
-                                TargetDistanceReduction += 1f;
+                            //TargetRangeRequired = CombatBase.CurrentPower.SNOPower == SNOPower.None ? 9f : CombatBase.CurrentPower.MinimumRange;
+                            TargetRangeRequired = 1f;
+                            CurrentTarget.Radius = 1f;
                             break;
                         }
                     case GObjectType.Barricade:
                         {
                             // Pick a range to try to reach + (tmp_fThisRadius * 0.70);
-                            TargetRangeRequired = 1f; // CombatBase.CurrentPower.SNOPower == SNOPower.None ? 9f : CombatBase.CurrentPower.MinimumRange;
-                            TargetDistanceReduction = 0f; // CurrentTarget.Radius;
-
-                            if (ForceCloseRangeTarget)
-                                TargetDistanceReduction += TimesBlockedMoving * 3f;
-
-                            if (TargetDistanceReduction <= 0f)
-                                TargetDistanceReduction = 0f;
-
+                            TargetRangeRequired = 1f;
+                            CurrentTarget.Radius = 1f;
                             break;
                         }
                     // * Avoidance - need to pick an avoid location and move there
                     case GObjectType.Avoidance:
                         {
                             TargetRangeRequired = 2f;
-                            // Treat the distance as closer if the X & Y distance are almost point-blank, for avoidance spots
-                            if (DistanceToDestination <= 1.5f)
-                                TargetDistanceReduction += 2f;
                             break;
                         }
                     // * Backtrack Destination
@@ -1602,7 +1583,7 @@ namespace Trinity
                             break;
                         }
                     case GObjectType.Door:
-                        TargetRangeRequired = CurrentTarget.Radius + 2f;
+                        TargetRangeRequired = 2f;
                         break;
                     default:
                         TargetRangeRequired = CurrentTarget.Radius;

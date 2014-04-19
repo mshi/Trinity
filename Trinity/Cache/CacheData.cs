@@ -31,11 +31,6 @@ namespace Trinity
         internal static Dictionary<int, MonsterSize> MonsterSizes = new Dictionary<int, MonsterSize>();
 
         /// <summary>
-        /// Caches the ObjectType of each object as we find it (RactorGUID based)
-        /// </summary>
-        internal static Dictionary<int, GObjectType> ObjectType = new Dictionary<int, GObjectType>();
-
-        /// <summary>
         /// Caches monster affixes for the monster ID, as this value can be a pain to get and slow (RactorGUID based)
         /// </summary>
         internal static Dictionary<int, MonsterAffixes> UnitMonsterAffix = new Dictionary<int, MonsterAffixes>();
@@ -61,34 +56,9 @@ namespace Trinity
         internal static Dictionary<int, bool> UnitIsBurrowed = new Dictionary<int, bool>();
 
         /// <summary>
-        /// Store Actor SNO for each object (RactorGUID based)
-        /// </summary>
-        internal static Dictionary<int, int> ActorSNO = new Dictionary<int, int>();
-
-        /// <summary>
-        /// Store ACDGUID for each object (RactorGUID based)
-        /// </summary>
-        internal static Dictionary<int, int> AcdGuid = new Dictionary<int, int>();
-
-        /// <summary>
-        /// Store internal name for each object (RactorGUID based)
-        /// </summary>
-        internal static Dictionary<int, string> Name = new Dictionary<int, string>();
-
-        /// <summary>
         /// Store Collision-sphere radius for each object (SNO based)
         /// </summary>
         internal static Dictionary<int, float> CollisionSphere = new Dictionary<int, float>();
-
-        /// <summary>
-        /// Caches the game balance ID for each object, which can then be used to pull up the appropriate entry from within GameBalanceDataCache (RactorGUID based)
-        /// </summary>
-        internal static Dictionary<int, int> GameBalanceID = new Dictionary<int, int>();
-
-        /// <summary>
-        /// Caches the Dynamic ID for each object (only used for non-units) (RactorGUID based)
-        /// </summary>
-        internal static Dictionary<int, int> DynamicID = new Dictionary<int, int>();
 
         /// <summary>
         /// Caches the position for each object (only used for non-units, as this data is static so can be cached) (RactorGUID based)
@@ -171,25 +141,24 @@ namespace Trinity
         /// <summary>
         /// Contains an RActorGUID and count of the number of times we've switched to this target
         /// </summary>
-        internal static Dictionary<string, int> PrimaryTargetCount = new Dictionary<string, int>(); 
+        internal static Dictionary<string, int> PrimaryTargetCount = new Dictionary<string, int>();
+
+        /// <summary>
+        /// Events that have expired without being completed
+        /// </summary>
+        internal static HashSet<int> BlacklistedEvents = new HashSet<int>();
 
         /// <summary>
         /// Called every cache-refresh
         /// </summary>
         internal static void Clear()
         {
-            CacheData.AcdGuid.Clear();
-            CacheData.ActorSNO.Clear();
             CacheData.CollisionSphere.Clear();
             CacheData.CurrentUnitHealth.Clear();
-            CacheData.DynamicID.Clear();
-            CacheData.GameBalanceID.Clear();
             CacheData.LastCheckedUnitHealth.Clear();
             CacheData.MonsterObstacles.Clear();
             CacheData.MonsterSizes.Clear();
             CacheData.MonsterTypes.Clear();
-            CacheData.Name.Clear();
-            CacheData.ObjectType.Clear();
             CacheData.Position.Clear();
             CacheData.SummonedByACDId.Clear();
             CacheData.TimeBoundAvoidance.RemoveWhere(aoe => aoe.Expires < DateTime.UtcNow);
@@ -219,7 +188,8 @@ namespace Trinity
             CacheData.PickupItem.Clear();
             CacheData.PrimaryTargetCount.Clear();
             CacheData.SameWorldPortals.Clear();
-            CacheData.TimeBoundAvoidance.Clear();        
+            CacheData.TimeBoundAvoidance.Clear();
+            CacheData.BlacklistedEvents.Clear();
         }
 
     }
